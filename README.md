@@ -1,48 +1,111 @@
 # Go Wiki Application
 
-A lightweight, fast, and secure wiki application built with Go.
+A lightweight, fast, and secure wiki application built with Go, HTMX, and Casdoor.
 
 ## Features
 
 - **Page Management:** Create, view, and edit wiki pages.
 - **Authentication:** Secure user authentication via OIDC with Casdoor.
 - **Authorization:** Role-based access control (RBAC) using Casbin.
-- **Fast Frontend:** Lightweight frontend built with HTMX for near-instant page loads.
+- **Fast Frontend:** Lightweight server-rendered frontend using Go Templates and HTMX.
 - **Containerized:** Fully containerized with Docker and Docker Compose for easy deployment.
+- **Structured Logging:** Configurable, structured logging with `zerolog`.
+- **TLS Support:** Optional TLS/HTTPS support.
 
-## Running with Docker Compose
+## Architecture Flow
+
+The following diagram illustrates the request flow through the application:
+
+```
++--------------+   1. HTTP Request   +---------------------------------------------+
+|              |-------------------->| Chi Router                                  |
+| Web Browser  |                     |   - Logging, Recovery Middleware            |
+|              |                     |   - /static/* -> Static File Server         |
++--------------+                     |   - /auth/* -> Auth Handlers                |
+      ^                              |   - /view/* -> Authz Middleware -> Page Handlers|
+      |                              +---------------------------------------------+
+      |                                                 |
+   5. HTML Page                                         | 2. Authz Middleware
+      |                                                 V
+      |                              +---------------------------------------------+
+      +----------------------------| Page/Auth Handlers                          |
+                                   |   - Calls OIDC Authenticator (for login)    |
+                                   |   - Calls Page Service (for wiki pages)     |
+                                   |   - Calls View Service (to render HTML)     |
+                                   +---------------------------------------------+
+                                                     |         |
+                                  3. Service Logic   |         | 4. Render Template
+                                                     V         V
+                                   +-----------------+---------+-------------------+
+                                   | Page Service            | View Service      |
+                                   | - Calls Repository      | - Executes HTML   |
+                                   |                         |   Templates       |
+                                   +-----------------+---------+-------------------+
+                                                     |
+                                                     V
+                                   +-----------------+-----------------------------+
+                                   | Page Repository         | Casbin Enforcer   |
+                                   | - Queries SQLite DB     | - Queries Policies|
+                                   +---------------------------------------------+
+
+```
+
+## Getting Started
 
 This application is designed to be run with Docker Compose, which orchestrates the Go application and a Casdoor identity provider.
 
-### Prerequisites
+### 1. Prerequisites
 
-- Docker and Docker Compose installed.
-- A `.env` file or environment variables for OIDC client secrets.
+- Docker and Docker Compose must be installed on your system.
 
-### Configuration
+### 2. Configuration
 
-1.  **Casdoor Setup:**
-    - After running `docker-compose up` for the first time, Casdoor will be available at `http://localhost:8000`.
-    - Log in with the default credentials (`admin`/`casdoor`).
-    - Create a new Application and a new User.
-    - Note the `Client ID` and `Client Secret` for your application.
+The application is configured via environment variables, which can be set directly in the `docker-compose.yml` file or loaded from a `.env` file.
 
-2.  **Application Setup:**
-    - Update the `docker-compose.yml` file with your Casdoor `Client ID` and `Client Secret`:
-      ```yaml
-      environment:
-        - WIKI_OIDC_CLIENT_ID=YOUR_CLIENT_ID
-        - WIKI_OIDC_CLIENT_SECRET=YOUR_CLIENT_SECRET
-      ```
+**A. Casdoor Setup:**
 
-### Running the Application
+Before you can log in to the wiki, you need to configure Casdoor and get OIDC client credentials.
 
-1.  Start the application stack:
+1.  Run `docker-compose up` once to start the Casdoor service.
+2.  Navigate to `http://localhost:8000` in your browser.
+3.  Log in with the default credentials: `admin` / `casdoor`.
+4.  In the Casdoor UI, create a new **Application**.
+    -   Note the `Client ID` and `Client Secret`.
+5.  Ensure the **Redirect URL** in your Casdoor application settings is set to `http://localhost:8080/auth/callback`.
+
+**B. Wiki Application Setup:**
+
+1.  Open the `docker-compose.yml` file.
+2.  Find the `environment` section for the `app` service.
+3.  Replace the placeholder values for `WIKI_OIDC_CLIENT_ID` and `WIKI_OIDC_CLIENT_SECRET` with the credentials you obtained from Casdoor.
+
+### 3. Running the Application
+
+1.  Start the application stack from the root of the project:
     ```bash
     docker-compose up --build
     ```
+    The `--build` flag is only necessary the first time or after making code changes.
 
-2.  The wiki will be available at `http://localhost:8080`.
+2.  The wiki application will be available at `http://localhost:8080`.
+
+## Configuration Details
+
+All configuration can be set via environment variables, which override the defaults in `config.yml`.
+
+| Variable                      | Description                                           | Default                  |
+| ----------------------------- | ----------------------------------------------------- | ------------------------ |
+| `WIKI_SERVER_PORT`            | Port for the wiki server to listen on.                | `8080`                   |
+| `WIKI_SERVER_TLS_ENABLED`     | Set to `true` to enable HTTPS.                        | `false`                  |
+| `WIKI_SERVER_TLS_CERTFILE`    | Path to the TLS certificate file.                     | `cert.pem`               |
+| `WIKI_SERVER_TLS_KEYFILE`     | Path to the TLS key file.                             | `key.pem`                |
+| `WIKI_DB_DSN`                 | Data Source Name for the database.                    | `wiki.db`                |
+| `WIKI_OIDC_ISSUER_URL`        | The issuer URL of your OIDC provider.                 | `http://casdoor:8000`    |
+| `WIKI_OIDC_CLIENT_ID`         | The client ID for the OIDC application.               | `YOUR_CLIENT_ID`         |
+| `WIKI_OIDC_CLIENT_SECRET`     | The client secret for the OIDC application.           | `YOUR_CLIENT_SECRET`     |
+| `WIKI_OIDC_REDIRECT_URL`      | The callback URL for OIDC.                            | `http://localhost:8080/auth/callback` |
+| `WIKI_LOG_LEVEL`              | The logging level (`debug`, `info`, `warn`, `error`). | `info`                   |
+| `WIKI_LOG_FORMAT`             | The log format (`console` or `json`).                 | `console`                |
 
 ## Default Roles & Permissions
 
@@ -50,9 +113,10 @@ The application seeds the database with a default set of roles and permissions o
 
 - **`anonymous`**:
   - Can view all pages (`/view/*`).
-  - Can access the login and callback routes.
+  - Can access the login and callback routes (`/auth/*`).
 - **`editor`**:
-  - Can do everything an `anonymous` user can.
-  - Can edit and save all pages (`/edit/*`, `/save/*`).
+  - Inherits all permissions from `anonymous`.
+  - Can access the edit form for all pages (`/edit/*`).
+  - Can save pages (`/save/*`).
 
-To assign a user to the `editor` role, you must do so manually within the Casdoor UI and ensure the corresponding policy is added to the Casbin database.
+To assign a user to the `editor` role, you must do so manually within Casdoor and ensure the corresponding policy is added to the Casbin database. This part of the workflow is currently manual.

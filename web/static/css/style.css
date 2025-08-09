@@ -1,0 +1,8 @@
+/* A basic style to confirm the file is loading */
+body {
+    font-family: sans-serif;
+    max-width: 800px;
+    margin: auto;
+    padding: 1rem;
+    line-height: 1.6;
+}
