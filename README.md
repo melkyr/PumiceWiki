@@ -120,3 +120,22 @@ The application seeds the database with a default set of roles and permissions o
   - Can save pages (`/save/*`).
 
 To assign a user to the `editor` role, you must do so manually within Casdoor and ensure the corresponding policy is added to the Casbin database. This part of the workflow is currently manual.
+
+## Developer Workflow: Modifying Static Assets
+
+This project uses Go's `embed` package to bundle all static assets (CSS, JS) and HTML templates directly into the application binary. This creates a single, self-contained executable, which simplifies deployment.
+
+The important consequence of this design is that **you cannot change static assets on a running server.** To modify any CSS, JavaScript, or HTML templates, you must:
+
+1.  Edit the source files in the `/web/static` or `/web/templates` directories in your local development environment.
+2.  Rebuild the application's Docker image. The provided `Dockerfile` handles the embedding process.
+3.  Deploy the new Docker image.
+
+If you are using the provided `docker-compose.yml`, the workflow is:
+
+```bash
+# After making changes to files in /web/...
+docker-compose up --build
+```
+
+The `--build` flag tells Docker Compose to rebuild the `app` image, which will include your updated assets.
