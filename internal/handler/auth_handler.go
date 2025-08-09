@@ -77,6 +77,13 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
+// handleLogout destroys the user's session and redirects to the home page.
+func (h *AuthHandler) handleLogout(w http.ResponseWriter, r *http.Request) {
+	// Destroy the session and redirect.
+	h.session.Destroy(r.Context())
+	http.Redirect(w, r, "/", http.StatusFound)
+}
+
 // randString is a helper function to generate a random string for the 'state' parameter.
 func randString(nByte int) (string, error) {
 	b := make([]byte, nByte)

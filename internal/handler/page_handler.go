@@ -44,7 +44,10 @@ func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middl
 		return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
 	}
 
-	data := map[string]interface{}{"Page": page}
+	data := map[string]interface{}{
+		"Page": page,
+		"User": middleware.GetUserInfo(r.Context()),
+	}
 	if err := h.view.Render(w, "view.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render view", Code: http.StatusInternalServerError}
 	}
@@ -59,7 +62,10 @@ func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) *middl
 		page = &data.Page{Title: title}
 	}
 
-	data := map[string]interface{}{"Page": page}
+	data := map[string]interface{}{
+		"Page": page,
+		"User": middleware.GetUserInfo(r.Context()),
+	}
 	if err := h.view.Render(w, "edit.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render edit page", Code: http.StatusInternalServerError}
 	}
@@ -70,7 +76,8 @@ func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) *middl
 func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	title := chi.URLParam(r, "title")
 	content := r.FormValue("content")
-	authorID := "anonymous"
+	userInfo := middleware.GetUserInfo(r.Context())
+	authorID := userInfo.Subject
 
 	page, err := h.pageService.ViewPage(r.Context(), title)
 	if err != nil {

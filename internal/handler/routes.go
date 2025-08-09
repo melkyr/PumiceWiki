@@ -47,6 +47,7 @@ func NewRouter(
 			// so they are not wrapped in the error middleware.
 			r.Get("/auth/login", authHandler.handleLogin)
 			r.Get("/auth/callback", authHandler.handleCallback)
+			r.Get("/auth/logout", authHandler.handleLogout)
 		}
 	})
 

@@ -12,7 +12,11 @@
     <header>
         <h1><a href="/">Go Wiki</a></h1>
         <nav>
-            <a href="/auth/login">Login</a>
+            {{if ne .User.Subject "anonymous"}}
+                <span>Welcome, {{.User.Subject}}</span> | <a href="/auth/logout">Logout</a>
+            {{else}}
+                <a href="/auth/login">Login</a>
+            {{end}}
         </nav>
     </header>
     <main>
