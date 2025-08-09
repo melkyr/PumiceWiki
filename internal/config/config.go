@@ -11,6 +11,7 @@ type Config struct {
 	Server ServerConfig `mapstructure:"server"`
 	DB     DBConfig     `mapstructure:"db"`
 	OIDC   OIDCConfig   `mapstructure:"oidc"`
+	Log    LogConfig    `mapstructure:"log"`
 }
 
 // ServerConfig holds server-specific configuration.
@@ -39,11 +40,20 @@ type OIDCConfig struct {
 	RedirectURL  string `mapstructure:"redirect_url"`
 }
 
+// LogConfig holds logging configuration.
+type LogConfig struct {
+	Level  string `mapstructure:"level"`  // e.g., "debug", "info", "warn", "error"
+	Format string `mapstructure:"format"` // e.g., "json", "console"
+}
+
 // LoadConfig reads configuration from file and environment variables.
 func LoadConfig() (*Config, error) {
 	// Set default values
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("db.dsn", "wiki.db")
+	viper.SetDefault("log.level", "info")
+	viper.SetDefault("log.format", "console")
+
 
 	// Set up viper to read from config file
 	viper.SetConfigName("config")

@@ -5,12 +5,13 @@ package handler
 import (
 	"context"
 	"go-wiki-app/internal/auth"
+	"go-wiki-app/internal/config"
 	"go-wiki-app/internal/data"
+	"go-wiki-app/internal/logger"
 	"go-wiki-app/internal/middleware"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
 	"go-wiki-app/web"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -23,8 +24,8 @@ import (
 )
 
 type testApp struct {
-	Router  *chi.Mux
-	Repo    service.PageRepository
+	Router   *chi.Mux
+	Repo     service.PageRepository
 	Enforcer *casbin.Enforcer
 }
 
@@ -44,22 +45,20 @@ func setupTest(t *testing.T) (*testApp, func()) {
 	db.MustExec(string(schema2))
 
 	// Init layers.
-	logger := log.New(os.Stdout, "TEST ", log.LstdFlags)
+	log := logger.New(config.LogConfig{Level: "debug", Format: "console"})
 	viewService, _ := view.New(web.TemplateFS)
 	pageRepository := data.NewSQLPageRepository(db)
 	pageService := service.NewPageService(pageRepository)
-	pageHandler := NewPageHandler(pageService, viewService, logger)
+	pageHandler := NewPageHandler(pageService, viewService, log)
 
 	// Init auth components for the test.
-	// We pass a nil authenticator because we are not testing the OIDC login flow itself,
-	// only the authorization rules for an anonymous user.
 	enforcer, _ := auth.NewEnforcer("sqlite3", dsn, "../../auth_model.conf")
 	authzMiddleware := middleware.Authorizer(enforcer, nil)
 	router := NewRouter(pageHandler, nil, authzMiddleware)
 
 	app := &testApp{
-		Router:  router,
-		Repo:    pageRepository,
+		Router:   router,
+		Repo:     pageRepository,
 		Enforcer: enforcer,
 	}
 
@@ -74,7 +73,6 @@ func seedPolicies(t *testing.T, e *casbin.Enforcer) {
 	t.Helper()
 	policies := [][]string{
 		{"anonymous", "/view/TestPage", "GET"},
-		{"anonymous", "/auth/login", "GET"},
 		{"editor", "/edit/TestPage", "GET"},
 		{"editor", "/save/TestPage", "POST"},
 	}
@@ -89,10 +87,7 @@ func TestAuthzMiddleware(t *testing.T) {
 	app, teardown := setupTest(t)
 	defer teardown()
 
-	// Seed specific policies for this test
 	seedPolicies(t, app.Enforcer)
-
-	// Create a page for viewing
 	app.Repo.CreatePage(context.Background(), &data.Page{Title: "TestPage", Content: "content"})
 
 	testCases := []struct {

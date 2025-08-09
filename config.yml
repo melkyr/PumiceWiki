@@ -18,3 +18,7 @@ oidc:
   client_id: "YOUR_CASDOOR_CLIENT_ID"
   client_secret: "YOUR_CASDOOR_CLIENT_SECRET"
   redirect_url: "http://localhost:8080/auth/callback"
+
+log:
+  level: "info" # "debug", "info", "warn", "error"
+  format: "console" # "console" for development, "json" for production

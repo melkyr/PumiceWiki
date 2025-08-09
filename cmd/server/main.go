@@ -6,69 +6,75 @@ import (
 	"go-wiki-app/internal/config"
 	"go-wiki-app/internal/data"
 	"go-wiki-app/internal/handler"
+	"go-wiki-app/internal/logger"
 	"go-wiki-app/internal/middleware"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
 	"go-wiki-app/web"
-	"log"
 	"net/http"
-	"os"
 
 	"github.com/casbin/casbin/v2"
 )
 
 func main() {
-	logger := log.New(os.Stdout, "WIKI_APP ", log.LstdFlags|log.Lshortfile)
-
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		logger.Fatalf("Failed to load configuration: %v", err)
+		// Use a basic logger for config errors
+		fmt.Printf("Failed to load configuration: %v\n", err)
+		return
 	}
 
-	logger.Println("Applying database migrations...")
+	// 1. Initialize Logger
+	log := logger.New(cfg.Log)
+
+	// 2. Apply Migrations
+	log.Info("Applying database migrations...")
 	if err := data.ApplyMigrations(cfg.DB.DSN, "migrations"); err != nil {
-		logger.Fatalf("Failed to apply migrations: %v", err)
+		log.Fatal(err, "Failed to apply migrations")
 	}
-	logger.Println("Migrations applied successfully.")
+	log.Info("Migrations applied successfully.")
 
-	logger.Println("Connecting to the database...")
+	// 3. Initialize Database
+	log.Info("Connecting to the database...")
 	db, err := data.NewDB(cfg.DB.DSN)
 	if err != nil {
-		logger.Fatalf("Failed to connect to database: %v", err)
+		log.Fatal(err, "Failed to connect to database")
 	}
 	defer db.Close()
-	logger.Println("Database connection successful.")
+	log.Info("Database connection successful.")
 
-	logger.Println("Initializing authentication and authorization...")
+	// 4. Initialize Auth Components
+	log.Info("Initializing authentication and authorization...")
 	authenticator, err := auth.NewAuthenticator(&cfg.OIDC)
 	if err != nil {
-		logger.Fatalf("Failed to initialize authenticator: %v", err)
+		log.Fatal(err, "Failed to initialize authenticator")
 	}
 	enforcer, err := auth.NewEnforcer("sqlite3", cfg.DB.DSN, "auth_model.conf")
 	if err != nil {
-		logger.Fatalf("Failed to initialize enforcer: %v", err)
+		log.Fatal(err, "Failed to initialize enforcer")
 	}
-	seedDefaultPolicies(enforcer, logger)
-	logger.Println("Auth components initialized and policies seeded.")
+	seedDefaultPolicies(enforcer, log)
+	log.Info("Auth components initialized and policies seeded.")
 
-	logger.Println("Initializing view templates...")
+	// 5. Initialize View Templates
+	log.Info("Initializing view templates...")
 	viewService, err := view.New(web.TemplateFS)
 	if err != nil {
-		logger.Fatalf("Failed to initialize view templates: %v", err)
+		log.Fatal(err, "Failed to initialize view templates")
 	}
-	logger.Println("View templates initialized.")
+	log.Info("View templates initialized.")
 
-	// Initialize Layers (Repo -> Service -> Handler)
+	// 6. Initialize Layers (Repo -> Service -> Handler)
 	pageRepository := data.NewSQLPageRepository(db)
 	pageService := service.NewPageService(pageRepository)
-	pageHandler := handler.NewPageHandler(pageService, viewService, logger)
+	pageHandler := handler.NewPageHandler(pageService, viewService, log)
 	authHandler := handler.NewAuthHandler(authenticator)
 
-	// Initialize Router
+	// 7. Initialize Router
 	authzMiddleware := middleware.Authorizer(enforcer, authenticator)
 	router := handler.NewRouter(pageHandler, authHandler, authzMiddleware)
 
-	// Start HTTP Server
+	// 8. Start HTTP Server
 	serverAddr := fmt.Sprintf(":%s", cfg.Server.Port)
 	server := &http.Server{
 		Addr:    serverAddr,
@@ -76,46 +82,39 @@ func main() {
 	}
 
 	if cfg.Server.TLS.Enabled {
-		logger.Printf("Starting HTTPS server on %s", serverAddr)
+		log.Info(fmt.Sprintf("Starting HTTPS server on %s", serverAddr))
 		err = server.ListenAndServeTLS(cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile)
 	} else {
-		logger.Printf("Starting HTTP server on %s", serverAddr)
+		log.Info(fmt.Sprintf("Starting HTTP server on %s", serverAddr))
 		err = server.ListenAndServe()
 	}
 
 	if err != nil && err != http.ErrServerClosed {
-		logger.Fatalf("Could not start server: %v\n", err)
+		log.Fatal(err, "Could not start server")
 	}
 }
 
-func seedDefaultPolicies(e *casbin.Enforcer, logger *log.Logger) {
-	logger.Println("Seeding default authorization policies...")
-
+func seedDefaultPolicies(e *casbin.Enforcer, log logger.Logger) {
+	log.Info("Seeding default authorization policies...")
 	policies := [][]string{
-		// anonymous role can view pages and login
 		{"anonymous", "/view/*", "GET"},
 		{"anonymous", "/auth/login", "GET"},
 		{"anonymous", "/auth/callback", "GET"},
-		// editor role can do everything anonymous can, plus edit and save
 		{"editor", "/view/*", "GET"},
 		{"editor", "/edit/*", "GET"},
 		{"editor", "/save/*", "POST"},
 	}
-
 	for _, p := range policies {
 		if has, _ := e.HasPolicy(p); !has {
 			if _, err := e.AddPolicy(p); err != nil {
-				logger.Printf("Failed to add policy %v: %v", p, err)
+				log.Error(err, fmt.Sprintf("Failed to add policy %v", p))
 			}
 		}
 	}
-
-	// editor role inherits anonymous permissions (though redundant here, it's good practice)
 	if has, _ := e.HasRoleForUser("editor", "anonymous"); !has {
 		if _, err := e.AddRoleForUser("editor", "anonymous"); err != nil {
-			logger.Printf("Failed to add role 'editor' -> 'anonymous': %v", err)
+			log.Error(err, "Failed to add role 'editor' -> 'anonymous'")
 		}
 	}
-
-	logger.Println("Policy seeding complete.")
+	log.Info("Policy seeding complete.")
 }
