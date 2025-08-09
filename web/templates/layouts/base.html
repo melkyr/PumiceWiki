@@ -6,7 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}Go Wiki{{end}}</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    {{if not .IsBasicMode}}
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
+    <script src="https://unpkg.com/easymde/dist/easymde.min.js"></script>
+    {{end}}
 </head>
 <body>
     <header>
@@ -25,6 +29,7 @@
     <footer>
         <p>Powered by Go & HTMX</p>
     </footer>
+    {{block "scripts" .}}{{end}}
 </body>
 </html>
 {{end}}
