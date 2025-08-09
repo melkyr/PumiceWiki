@@ -31,8 +31,8 @@ type testApp struct {
 	Enforcer *casbin.Enforcer
 }
 
-// setupTest initializes a full application stack for testing.
-func setupTest(t *testing.T) (*testApp, func()) {
+// setupIntegrationTest initializes a full application stack for testing.
+func setupIntegrationTest(t *testing.T) (*testApp, func()) {
 	t.Helper()
 	dsn := "file:memory?mode=memory&cache=shared"
 	db, err := data.NewDB(dsn)
@@ -73,14 +73,16 @@ func setupTest(t *testing.T) (*testApp, func()) {
 	return app, teardown
 }
 
-func TestHandlers(t *testing.T) {
-	app, teardown := setupTest(t)
+func TestHandlers_Integration(t *testing.T) {
+	app, teardown := setupIntegrationTest(t)
 	defer teardown()
 
-	// Seed data and policies
-	app.Repo.CreatePage(context.Background(), &data.Page{Title: "TestPage", Content: "content"})
-	app.Enforcer.AddPolicy("anonymous", "/view/*", "GET") // Correct, permissive policy
+	// Seed policies
+	app.Enforcer.AddPolicy("anonymous", "/view/*", "GET")
 	app.Enforcer.AddPolicy("editor", "/edit/*", "GET")
+
+	// Seed data
+	app.Repo.CreatePage(context.Background(), &data.Page{Title: "TestPage", Content: "content"})
 
 	testCases := []struct {
 		name       string
