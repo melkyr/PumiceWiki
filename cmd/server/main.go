@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"go-wiki-app/internal/auth"
 	"go-wiki-app/internal/config"
@@ -12,29 +14,35 @@ import (
 	"go-wiki-app/internal/view"
 	"go-wiki-app/web"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/alexedwards/scs/sqlite3store"
+	"github.com/alexedwards/scs/v2"
 	"github.com/casbin/casbin/v2"
 )
 
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		// Use a basic logger for config errors
 		fmt.Printf("Failed to load configuration: %v\n", err)
-		return
+		os.Exit(1)
 	}
 
-	// 1. Initialize Logger
 	log := logger.New(cfg.Log)
 
-	// 2. Apply Migrations
+	if cfg.Session.SecretKey == "" || cfg.Session.SecretKey == "CHANGE_ME_IN_PRODUCTION_SECRET!!" {
+		log.Fatal(errors.New("session secret key not set"), "Please set a secure WIKI_SESSION_SECRETKEY environment variable.")
+	}
+
+	// ... (db and migration logic) ...
 	log.Info("Applying database migrations...")
 	if err := data.ApplyMigrations(cfg.DB.DSN, "migrations"); err != nil {
 		log.Fatal(err, "Failed to apply migrations")
 	}
 	log.Info("Migrations applied successfully.")
-
-	// 3. Initialize Database
 	log.Info("Connecting to the database...")
 	db, err := data.NewDB(cfg.DB.DSN)
 	if err != nil {
@@ -43,7 +51,15 @@ func main() {
 	defer db.Close()
 	log.Info("Database connection successful.")
 
-	// 4. Initialize Auth Components
+	// Initialize Session Manager
+	sessionManager := scs.New()
+	sessionManager.Store = sqlite3store.New(db.DB) // Use the underlying *sql.DB
+	sessionManager.Lifetime = time.Duration(cfg.Session.Lifetime) * time.Hour
+	sessionManager.Cookie.Persist = true
+	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
+	sessionManager.Cookie.Secure = cfg.Server.TLS.Enabled
+
+	// ... (auth and other init logic) ...
 	log.Info("Initializing authentication and authorization...")
 	authenticator, err := auth.NewAuthenticator(&cfg.OIDC)
 	if err != nil {
@@ -55,46 +71,51 @@ func main() {
 	}
 	seedDefaultPolicies(enforcer, log)
 	log.Info("Auth components initialized and policies seeded.")
-
-	// 5. Initialize View Templates
 	log.Info("Initializing view templates...")
 	viewService, err := view.New(web.TemplateFS)
 	if err != nil {
 		log.Fatal(err, "Failed to initialize view templates")
 	}
 	log.Info("View templates initialized.")
-
-	// 6. Initialize Layers (Repo -> Service -> Handler)
 	pageRepository := data.NewSQLPageRepository(db)
 	pageService := service.NewPageService(pageRepository)
 	pageHandler := handler.NewPageHandler(pageService, viewService, log)
-	authHandler := handler.NewAuthHandler(authenticator)
+	authHandler := handler.NewAuthHandler(authenticator, sessionManager)
+	authzMiddleware := middleware.Authorizer(enforcer, sessionManager)
+	router := handler.NewRouter(pageHandler, authHandler, authzMiddleware, sessionManager)
 
-	// 7. Initialize Router
-	authzMiddleware := middleware.Authorizer(enforcer, authenticator)
-	router := handler.NewRouter(pageHandler, authHandler, authzMiddleware)
-
-	// 8. Start HTTP Server
-	serverAddr := fmt.Sprintf(":%s", cfg.Server.Port)
+	// ... (server setup and graceful shutdown) ...
 	server := &http.Server{
-		Addr:    serverAddr,
+		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
 		Handler: router,
 	}
-
-	if cfg.Server.TLS.Enabled {
-		log.Info(fmt.Sprintf("Starting HTTPS server on %s", serverAddr))
-		err = server.ListenAndServeTLS(cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile)
-	} else {
-		log.Info(fmt.Sprintf("Starting HTTP server on %s", serverAddr))
-		err = server.ListenAndServe()
+	go func() {
+		if cfg.Server.TLS.Enabled {
+			log.Info(fmt.Sprintf("Starting HTTPS server on %s", server.Addr))
+			if err := server.ListenAndServeTLS(cfg.Server.TLS.CertFile, cfg.Server.TLS.KeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatal(err, "Could not start HTTPS server")
+			}
+		} else {
+			log.Info(fmt.Sprintf("Starting HTTP server on %s", server.Addr))
+			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatal(err, "Could not start HTTP server")
+			}
+		}
+	}()
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Warn("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal(err, "Server forced to shutdown")
 	}
-
-	if err != nil && err != http.ErrServerClosed {
-		log.Fatal(err, "Could not start server")
-	}
+	log.Info("Server exiting")
 }
 
 func seedDefaultPolicies(e *casbin.Enforcer, log logger.Logger) {
+	// ... (seeding logic remains the same) ...
 	log.Info("Seeding default authorization policies...")
 	policies := [][]string{
 		{"anonymous", "/view/*", "GET"},

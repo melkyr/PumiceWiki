@@ -4,11 +4,11 @@ import (
 	"context"
 	"go-wiki-app/internal/data"
 	"time"
+
+	"github.com/microcosm-cc/bluemonday"
 )
 
 // PageRepository defines the interface for database operations on pages.
-// This allows us to decouple the service from the database implementation,
-// making the service easier to test and maintain.
 type PageRepository interface {
 	CreatePage(ctx context.Context, page *data.Page) error
 	GetPageByTitle(ctx context.Context, title string) (*data.Page, error)
@@ -19,31 +19,38 @@ type PageRepository interface {
 
 // PageService provides business logic for managing pages.
 type PageService struct {
-	repo PageRepository
+	repo      PageRepository
+	sanitizer *bluemonday.Policy
 }
 
 // NewPageService creates a new PageService with the given repository.
 func NewPageService(repo PageRepository) *PageService {
-	return &PageService{repo: repo}
+	// Create a new bluemonday policy for user-generated content.
+	// UGCPolicy is a good starting point as it allows basic formatting
+	// like links, lists, bold, etc., while stripping out dangerous HTML.
+	sanitizer := bluemonday.UGCPolicy()
+
+	return &PageService{
+		repo:      repo,
+		sanitizer: sanitizer,
+	}
 }
 
 // CreatePage handles the creation of a new wiki page.
-// It contains business logic for validation before passing it to the repository.
+// It sanitizes the content before passing it to the repository.
 func (s *PageService) CreatePage(ctx context.Context, title, content, authorID string) (*data.Page, error) {
-	// In a real application, you would add more validation here.
-	// For example, checking for empty title/content, sanitizing input, etc.
+	// Sanitize the user-provided content to prevent XSS attacks.
+	sanitizedContent := s.sanitizer.Sanitize(content)
 
 	page := &data.Page{
 		Title:    title,
-		Content:  content,
+		Content:  sanitizedContent,
 		AuthorID: authorID,
 	}
 
 	if err := s.repo.CreatePage(ctx, page); err != nil {
 		return nil, err
 	}
-
-	// The repository's CreatePage method is expected to populate the ID and timestamps.
 	return page, nil
 }
 
@@ -53,17 +60,20 @@ func (s *PageService) ViewPage(ctx context.Context, title string) (*data.Page, e
 }
 
 // UpdatePage handles the logic for updating an existing page.
+// It sanitizes the content before passing it to the repository.
 func (s *PageService) UpdatePage(ctx context.Context, id int64, title, content string) (*data.Page, error) {
-	// First, retrieve the existing page to ensure it exists.
 	page, err := s.repo.GetPageByID(ctx, id)
 	if err != nil {
-		return nil, err // Repository should return a specific error for not found.
+		return nil, err
 	}
+
+	// Sanitize the user-provided content.
+	sanitizedContent := s.sanitizer.Sanitize(content)
 
 	// Update the fields
 	page.Title = title
-	page.Content = content
-	page.UpdatedAt = time.Now() // The service layer can be responsible for timestamps
+	page.Content = sanitizedContent
+	page.UpdatedAt = time.Now()
 
 	if err := s.repo.UpdatePage(ctx, page); err != nil {
 		return nil, err
@@ -74,7 +84,5 @@ func (s *PageService) UpdatePage(ctx context.Context, id int64, title, content s
 
 // DeletePage handles the deletion of a page by its ID.
 func (s *PageService) DeletePage(ctx context.Context, id int64) error {
-	// You might add business logic here, e.g., checking if the user has permission
-	// before attempting to delete. For now, we delegate directly to the repository.
 	return s.repo.DeletePage(ctx, id)
 }

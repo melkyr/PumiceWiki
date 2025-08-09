@@ -18,7 +18,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/alexedwards/scs/sqlite3store"
+	"github.com/alexedwards/scs/v2"
 	"github.com/casbin/casbin/v2"
 	"github.com/go-chi/chi/v5"
 )
@@ -49,12 +52,20 @@ func setupTest(t *testing.T) (*testApp, func()) {
 	viewService, _ := view.New(web.TemplateFS)
 	pageRepository := data.NewSQLPageRepository(db)
 	pageService := service.NewPageService(pageRepository)
+
+	// Init session manager for tests
+	sessionManager := scs.New()
+	sessionManager.Store = sqlite3store.New(db.DB)
+	sessionManager.Lifetime = 3 * time.Minute
+
 	pageHandler := NewPageHandler(pageService, viewService, log)
 
 	// Init auth components for the test.
 	enforcer, _ := auth.NewEnforcer("sqlite3", dsn, "../../auth_model.conf")
-	authzMiddleware := middleware.Authorizer(enforcer, nil)
-	router := NewRouter(pageHandler, nil, authzMiddleware)
+	// We pass a nil authenticator to the middleware because we are only testing
+	// the anonymous user flow, which doesn't require OIDC verification.
+	authzMiddleware := middleware.Authorizer(enforcer, sessionManager)
+	router := NewRouter(pageHandler, nil, authzMiddleware, sessionManager)
 
 	app := &testApp{
 		Router:   router,

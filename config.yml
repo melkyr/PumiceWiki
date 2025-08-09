@@ -22,3 +22,9 @@ oidc:
 log:
   level: "info" # "debug", "info", "warn", "error"
   format: "console" # "console" for development, "json" for production
+
+session:
+  # This key must be 32 bytes long and should be kept secret.
+  # Generate a new one for production, e.g., with: openssl rand -base64 32
+  secret_key: "CHANGE_ME_IN_PRODUCTION_SECRET!!"
+  lifetime_hours: 24

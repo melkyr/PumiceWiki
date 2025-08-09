@@ -8,10 +8,11 @@ import (
 
 // Config holds all configuration for the application.
 type Config struct {
-	Server ServerConfig `mapstructure:"server"`
-	DB     DBConfig     `mapstructure:"db"`
-	OIDC   OIDCConfig   `mapstructure:"oidc"`
-	Log    LogConfig    `mapstructure:"log"`
+	Server  ServerConfig  `mapstructure:"server"`
+	DB      DBConfig      `mapstructure:"db"`
+	OIDC    OIDCConfig    `mapstructure:"oidc"`
+	Log     LogConfig     `mapstructure:"log"`
+	Session SessionConfig `mapstructure:"session"`
 }
 
 // ServerConfig holds server-specific configuration.
@@ -46,6 +47,12 @@ type LogConfig struct {
 	Format string `mapstructure:"format"` // e.g., "json", "console"
 }
 
+// SessionConfig holds session management configuration.
+type SessionConfig struct {
+	SecretKey string `mapstructure:"secret_key"`
+	Lifetime  int    `mapstructure:"lifetime_hours"`
+}
+
 // LoadConfig reads configuration from file and environment variables.
 func LoadConfig() (*Config, error) {
 	// Set default values
@@ -53,6 +60,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("db.dsn", "wiki.db")
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "console")
+	viper.SetDefault("session.lifetime_hours", 24)
+	// No default for secret key, it must be provided.
 
 
 	// Set up viper to read from config file
