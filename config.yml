@@ -1,0 +1,16 @@
+# Default configuration for the Go Wiki App
+# These settings can be overridden by environment variables
+# (e.g., WIKI_SERVER_PORT=9090)
+
+server:
+  port: "8080"
+
+db:
+  dsn: "wiki.db" # Path to the SQLite database file
+
+oidc:
+  # These values must be obtained from your Casdoor instance
+  issuer_url: "http://localhost:8000"
+  client_id: "YOUR_CASDOOR_CLIENT_ID"
+  client_secret: "YOUR_CASDOOR_CLIENT_SECRET"
+  redirect_url: "http://localhost:8080/auth/callback"

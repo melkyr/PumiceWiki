@@ -1,0 +1,40 @@
+version: '3.8'
+
+networks:
+  go-wiki-net:
+    driver: bridge
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./wiki.db:/data/wiki.db
+    environment:
+      - WIKI_DB_DSN=/data/wiki.db
+      # Point to the Casdoor service within the Docker network.
+      - WIKI_OIDC_ISSUER_URL=http://casdoor:8000
+      # These values need to be configured in your Casdoor instance.
+      - WIKI_OIDC_CLIENT_ID=YOUR_CLIENT_ID
+      - WIKI_OIDC_CLIENT_SECRET=YOUR_CLIENT_SECRET
+      - WIKI_OIDC_REDIRECT_URL=http://localhost:8080/auth/callback
+    networks:
+      - go-wiki-net
+    depends_on:
+      - casdoor
+
+  casdoor:
+    image: casbin/casdoor:latest
+    container_name: casdoor
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - GIN_MODE=release
+    volumes:
+      # Mount the configuration and logs directories.
+      - ./conf:/conf
+      - ./logs:/logs
+    networks:
+      - go-wiki-net
