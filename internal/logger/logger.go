@@ -24,16 +24,20 @@ type zerologLogger struct {
 }
 
 // New creates a new Logger instance based on the provided configuration.
-func New(cfg config.LogConfig) Logger {
+// It accepts a variadic io.Writer to allow for injecting a test writer.
+func New(cfg config.LogConfig, testWriter ...io.Writer) Logger {
 	var output io.Writer = os.Stdout
+	if len(testWriter) > 0 {
+		output = testWriter[0]
+	}
+
 	if strings.ToLower(cfg.Format) == "console" {
-		output = zerolog.ConsoleWriter{Out: os.Stdout}
+		output = zerolog.ConsoleWriter{Out: output, NoColor: true}
 	}
 
 	level, err := zerolog.ParseLevel(strings.ToLower(cfg.Level))
 	if err != nil {
 		level = zerolog.InfoLevel
-		// Log the error using a temporary basic logger
 		tmpLogger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 		tmpLogger.Warn().Msgf("Invalid log level '%s', defaulting to 'info'", cfg.Level)
 	}

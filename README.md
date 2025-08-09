@@ -139,3 +139,25 @@ docker-compose up --build
 ```
 
 The `--build` flag tells Docker Compose to rebuild the `app` image, which will include your updated assets.
+
+## Testing Strategy
+
+This project uses two types of tests: unit tests and integration tests.
+
+### Unit Tests
+
+- **Purpose:** To test individual functions or components (like the `PageService`) in complete isolation. They use mock dependencies and do not require a database or running server.
+- **Location:** Files ending in `_unit_test.go`.
+- **How to Run:**
+  ```bash
+  go test -v ./...
+  ```
+
+### Integration Tests
+
+- **Purpose:** To test how multiple components work together. They use a real in-memory database and test the full HTTP request/response cycle.
+- **Location:** Files ending in `_integration_test.go`, marked with a `//go:build integration` tag.
+- **How to Run:**
+  ```bash
+  go test -v -tags=integration ./...
+  ```
