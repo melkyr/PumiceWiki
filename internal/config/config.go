@@ -15,7 +15,15 @@ type Config struct {
 
 // ServerConfig holds server-specific configuration.
 type ServerConfig struct {
-	Port string `mapstructure:"port"`
+	Port string     `mapstructure:"port"`
+	TLS  TLSConfig  `mapstructure:"tls"`
+}
+
+// TLSConfig holds TLS-specific configuration.
+type TLSConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
+	CertFile string `mapstructure:"certFile"`
+	KeyFile  string `mapstructure:"keyFile"`
 }
 
 // DBConfig holds database-specific configuration.

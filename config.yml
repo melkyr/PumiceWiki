@@ -4,6 +4,10 @@
 
 server:
   port: "8080"
+  tls:
+    enabled: false
+    certFile: "cert.pem"
+    keyFile: "key.pem"
 
 db:
   dsn: "wiki.db" # Path to the SQLite database file
