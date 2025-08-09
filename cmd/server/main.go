@@ -37,12 +37,12 @@ func main() {
 		log.Fatal(errors.New("session secret key not set"), "Please set a secure WIKI_SESSION_SECRETKEY environment variable.")
 	}
 
-	// ... (db and migration logic) ...
 	log.Info("Applying database migrations...")
 	if err := data.ApplyMigrations(cfg.DB.DSN, "migrations"); err != nil {
 		log.Fatal(err, "Failed to apply migrations")
 	}
 	log.Info("Migrations applied successfully.")
+
 	log.Info("Connecting to the database...")
 	db, err := data.NewDB(cfg.DB.DSN)
 	if err != nil {
@@ -51,15 +51,13 @@ func main() {
 	defer db.Close()
 	log.Info("Database connection successful.")
 
-	// Initialize Session Manager
 	sessionManager := scs.New()
-	sessionManager.Store = sqlite3store.New(db.DB) // Use the underlying *sql.DB
+	sessionManager.Store = sqlite3store.New(db.DB)
 	sessionManager.Lifetime = time.Duration(cfg.Session.Lifetime) * time.Hour
 	sessionManager.Cookie.Persist = true
 	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
 	sessionManager.Cookie.Secure = cfg.Server.TLS.Enabled
 
-	// ... (auth and other init logic) ...
 	log.Info("Initializing authentication and authorization...")
 	authenticator, err := auth.NewAuthenticator(&cfg.OIDC)
 	if err != nil {
@@ -71,18 +69,25 @@ func main() {
 	}
 	seedDefaultPolicies(enforcer, log)
 	log.Info("Auth components initialized and policies seeded.")
+
 	log.Info("Initializing view templates...")
 	viewService, err := view.New(web.TemplateFS)
 	if err != nil {
 		log.Fatal(err, "Failed to initialize view templates")
 	}
 	log.Info("View templates initialized.")
+
+	// Initialize Layers and Middleware
 	pageRepository := data.NewSQLPageRepository(db)
 	pageService := service.NewPageService(pageRepository)
 	pageHandler := handler.NewPageHandler(pageService, viewService, log)
 	authHandler := handler.NewAuthHandler(authenticator, sessionManager)
+
 	authzMiddleware := middleware.Authorizer(enforcer, sessionManager)
-	router := handler.NewRouter(pageHandler, authHandler, authzMiddleware, sessionManager)
+	errorMiddleware := middleware.Error(log, viewService)
+
+	// Initialize Router
+	router := handler.NewRouter(pageHandler, authHandler, authzMiddleware, errorMiddleware, sessionManager)
 
 	// ... (server setup and graceful shutdown) ...
 	server := &http.Server{
@@ -115,7 +120,6 @@ func main() {
 }
 
 func seedDefaultPolicies(e *casbin.Enforcer, log logger.Logger) {
-	// ... (seeding logic remains the same) ...
 	log.Info("Seeding default authorization policies...")
 	policies := [][]string{
 		{"anonymous", "/view/*", "GET"},

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v2/util"
 	sqlxadapter "github.com/memwey/casbin-sqlx-adapter"
 )
 
@@ -21,6 +22,10 @@ func NewEnforcer(driverName, dsn, modelPath string) (*casbin.Enforcer, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Add the custom keyMatch2 function to the enforcer.
+	// This is required for the wildcard matching in our model.
+	enforcer.AddFunction("keyMatch2", util.KeyMatch2Func)
 
 	// Load all policies from the database.
 	// This is essential to ensure the enforcer has the current set of rules.

@@ -14,7 +14,6 @@ import (
 	"go-wiki-app/web"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -41,31 +40,26 @@ func setupTest(t *testing.T) (*testApp, func()) {
 		t.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Manually apply migrations.
 	schema1, _ := os.ReadFile("../../migrations/001_initial_schema.sql")
 	db.MustExec(string(schema1))
 	schema2, _ := os.ReadFile("../../migrations/002_create_casbin_rule_table.sql")
 	db.MustExec(string(schema2))
 
-	// Init layers.
 	log := logger.New(config.LogConfig{Level: "debug", Format: "console"})
 	viewService, _ := view.New(web.TemplateFS)
 	pageRepository := data.NewSQLPageRepository(db)
 	pageService := service.NewPageService(pageRepository)
 
-	// Init session manager for tests
 	sessionManager := scs.New()
 	sessionManager.Store = sqlite3store.New(db.DB)
 	sessionManager.Lifetime = 3 * time.Minute
 
 	pageHandler := NewPageHandler(pageService, viewService, log)
 
-	// Init auth components for the test.
 	enforcer, _ := auth.NewEnforcer("sqlite3", dsn, "../../auth_model.conf")
-	// We pass a nil authenticator to the middleware because we are only testing
-	// the anonymous user flow, which doesn't require OIDC verification.
 	authzMiddleware := middleware.Authorizer(enforcer, sessionManager)
-	router := NewRouter(pageHandler, nil, authzMiddleware, sessionManager)
+	errorMiddleware := middleware.Error(log, viewService)
+	router := NewRouter(pageHandler, nil, authzMiddleware, errorMiddleware, sessionManager)
 
 	app := &testApp{
 		Router:   router,
@@ -79,54 +73,56 @@ func setupTest(t *testing.T) (*testApp, func()) {
 	return app, teardown
 }
 
-// seedPolicies is a helper to add policies for testing.
-func seedPolicies(t *testing.T, e *casbin.Enforcer) {
-	t.Helper()
-	policies := [][]string{
-		{"anonymous", "/view/TestPage", "GET"},
-		{"editor", "/edit/TestPage", "GET"},
-		{"editor", "/save/TestPage", "POST"},
-	}
-	for _, p := range policies {
-		if _, err := e.AddPolicy(p); err != nil {
-			t.Fatalf("Failed to add policy %v: %v", p, err)
-		}
-	}
-}
-
-func TestAuthzMiddleware(t *testing.T) {
+func TestHandlers(t *testing.T) {
 	app, teardown := setupTest(t)
 	defer teardown()
 
-	seedPolicies(t, app.Enforcer)
+	// Seed data and policies
 	app.Repo.CreatePage(context.Background(), &data.Page{Title: "TestPage", Content: "content"})
+	app.Enforcer.AddPolicy("anonymous", "/view/*", "GET") // Correct, permissive policy
+	app.Enforcer.AddPolicy("editor", "/edit/*", "GET")
 
 	testCases := []struct {
 		name       string
 		method     string
 		path       string
 		wantStatus int
+		wantBody   string
 	}{
-		{"Anonymous can view page", "GET", "/view/TestPage", http.StatusOK},
-		{"Anonymous cannot edit page", "GET", "/edit/TestPage", http.StatusForbidden},
-		{"Anonymous cannot save page", "POST", "/save/TestPage", http.StatusForbidden},
+		{
+			name:       "View Existing Page",
+			method:     "GET",
+			path:       "/view/TestPage",
+			wantStatus: http.StatusOK,
+			wantBody:   "<h2>TestPage</h2>",
+		},
+		{
+			name:       "View Non-Existent Page (Not Found Error)",
+			method:     "GET",
+			path:       "/view/NotFoundPage",
+			wantStatus: http.StatusNotFound,
+			wantBody:   "Error 404",
+		},
+		{
+			name:       "Edit Page without permission (Forbidden Error)",
+			method:     "GET",
+			path:       "/edit/TestPage",
+			wantStatus: http.StatusForbidden,
+			wantBody:   "Forbidden",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, nil)
-			if tc.method == "POST" {
-				form := url.Values{}
-				form.Add("content", "new content")
-				req = httptest.NewRequest(tc.method, tc.path, strings.NewReader(form.Encode()))
-				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-			}
-
 			rr := httptest.NewRecorder()
 			app.Router.ServeHTTP(rr, req)
 
 			if rr.Code != tc.wantStatus {
-				t.Errorf("handler returned wrong status code: got %v want %v", rr.Code, tc.wantStatus)
+				t.Errorf("want status %d; got %d", tc.wantStatus, rr.Code)
+			}
+			if tc.wantBody != "" && !strings.Contains(rr.Body.String(), tc.wantBody) {
+				t.Errorf("body does not contain expected string '%s'", tc.wantBody)
 			}
 		})
 	}

@@ -1,9 +1,9 @@
 package handler
 
 import (
-	"fmt"
 	"go-wiki-app/internal/data"
 	"go-wiki-app/internal/logger"
+	"go-wiki-app/internal/middleware"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
 	"net/http"
@@ -29,61 +29,62 @@ func NewPageHandler(ps *service.PageService, v *view.View, log logger.Logger) *P
 }
 
 // viewHandler retrieves the page title from the URL and renders the page.
-func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) {
+func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	title := chi.URLParam(r, "title")
-	page, err := h.pageService.ViewPage(r.Context(), title)
-	if err != nil {
-		h.log.Warn(fmt.Sprintf("Page not found, redirecting to edit: %s", title))
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
-		return
+	if title == "Home" {
+		_, err := h.pageService.ViewPage(r.Context(), title)
+		if err != nil {
+			http.Redirect(w, r, "/edit/Home", http.StatusFound)
+			return nil
+		}
 	}
 
-	data := map[string]interface{}{
-		"Page": page,
+	page, err := h.pageService.ViewPage(r.Context(), title)
+	if err != nil {
+		return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
 	}
-	h.view.Render(w, "view.html", data)
+
+	data := map[string]interface{}{"Page": page}
+	if err := h.view.Render(w, "view.html", data); err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to render view", Code: http.StatusInternalServerError}
+	}
+	return nil
 }
 
 // editHandler displays the form for editing a page.
-func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) {
+func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	title := chi.URLParam(r, "title")
 	page, err := h.pageService.ViewPage(r.Context(), title)
 	if err != nil {
-		// Page doesn't exist, create a new Page struct for the template.
 		page = &data.Page{Title: title}
 	}
 
-	data := map[string]interface{}{
-		"Page": page,
+	data := map[string]interface{}{"Page": page}
+	if err := h.view.Render(w, "edit.html", data); err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to render edit page", Code: http.StatusInternalServerError}
 	}
-	h.view.Render(w, "edit.html", data)
+	return nil
 }
 
 // saveHandler handles the form submission for creating or updating a page.
-func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) {
+func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	title := chi.URLParam(r, "title")
 	content := r.FormValue("content")
-	// In a real app, authorID would come from the user's session in the context.
 	authorID := "anonymous"
 
 	page, err := h.pageService.ViewPage(r.Context(), title)
 	if err != nil {
-		// Page doesn't exist, create it.
 		if _, err := h.pageService.CreatePage(r.Context(), title, content, authorID); err != nil {
-			h.log.Error(err, "Failed to create page")
-			http.Error(w, "Failed to save page", http.StatusInternalServerError)
-			return
+			return &middleware.AppError{Error: err, Message: "Failed to create page", Code: http.StatusInternalServerError}
 		}
 	} else {
-		// Page exists, update it.
 		page.Content = content
 		page.UpdatedAt = time.Now()
 		if _, err := h.pageService.UpdatePage(r.Context(), page.ID, page.Title, page.Content); err != nil {
-			h.log.Error(err, "Failed to update page")
-			http.Error(w, "Failed to save page", http.StatusInternalServerError)
-			return
+			return &middleware.AppError{Error: err, Message: "Failed to update page", Code: http.StatusInternalServerError}
 		}
 	}
 
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+	return nil
 }

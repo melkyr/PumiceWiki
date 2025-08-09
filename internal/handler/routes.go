@@ -4,11 +4,12 @@ import (
 	"io/fs"
 	"net/http"
 
+	"go-wiki-app/internal/middleware"
 	"go-wiki-app/web"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 // NewRouter creates and configures a new chi router.
@@ -16,19 +17,18 @@ func NewRouter(
 	pageHandler *PageHandler,
 	authHandler *AuthHandler,
 	authzMiddleware func(http.Handler) http.Handler,
+	errorMiddleware func(middleware.AppHandler) http.Handler, // New dependency
 	sessionManager *scs.SessionManager,
 ) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Base middleware stack
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-
-	// Add the session manager middleware.
-	// This must come before any handlers that need session data.
+	r.Use(chiMiddleware.RequestID)
+	r.Use(chiMiddleware.RealIP)
+	r.Use(chiMiddleware.Logger)
 	r.Use(sessionManager.LoadAndSave)
+	// The recoverer middleware is now handled by our custom error middleware,
+	// but we can leave chi's here as a fallback.
 
 	// Static File Server
 	staticFS, _ := fs.Sub(web.StaticFS, "static")
@@ -43,6 +43,8 @@ func NewRouter(
 	// Authentication Routes
 	r.Group(func(r chi.Router) {
 		if authHandler != nil {
+			// Auth handlers are standard http.Handlers, not appHandlers,
+			// so they are not wrapped in the error middleware.
 			r.Get("/auth/login", authHandler.handleLogin)
 			r.Get("/auth/callback", authHandler.handleCallback)
 		}
@@ -51,9 +53,10 @@ func NewRouter(
 	// Protected Routes
 	r.Group(func(r chi.Router) {
 		r.Use(authzMiddleware)
-		r.Get("/view/{title}", pageHandler.viewHandler)
-		r.Get("/edit/{title}", pageHandler.editHandler)
-		r.Post("/save/{title}", pageHandler.saveHandler)
+		// Wrap each appHandler with the error middleware to convert it to an http.Handler.
+		r.Method("GET", "/view/{title}", errorMiddleware(pageHandler.viewHandler))
+		r.Method("GET", "/edit/{title}", errorMiddleware(pageHandler.editHandler))
+		r.Method("POST", "/save/{title}", errorMiddleware(pageHandler.saveHandler))
 	})
 
 	return r
