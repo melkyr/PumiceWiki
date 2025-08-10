@@ -57,7 +57,7 @@ type SessionConfig struct {
 func LoadConfig() (*Config, error) {
 	// Set default values
 	viper.SetDefault("server.port", "8080")
-	viper.SetDefault("db.dsn", "wiki.db")
+	viper.SetDefault("db.dsn", "wikiuser:wikipass@tcp(127.0.0.1:3306)/go_wiki_app?parseTime=true")
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "console")
 	viper.SetDefault("session.lifetime_hours", 24)

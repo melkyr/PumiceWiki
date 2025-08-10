@@ -1,7 +1,7 @@
 # Dockerfile
 
 # Stage 1: Build the Go binary in a dedicated build environment
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24.3-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app

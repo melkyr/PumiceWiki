@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alexedwards/scs/sqlite3store"
+	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/alexedwards/scs/v2"
 	"github.com/casbin/casbin/v2"
 )
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	log.Info("Applying database migrations...")
-	if err := data.ApplyMigrations(cfg.DB.DSN, "migrations"); err != nil {
+	if err := data.ApplyMigrations(cfg.DB.DSN, "/migrations"); err != nil {
 		log.Fatal(err, "Failed to apply migrations")
 	}
 	log.Info("Migrations applied successfully.")
@@ -52,7 +52,7 @@ func main() {
 	log.Info("Database connection successful.")
 
 	sessionManager := scs.New()
-	sessionManager.Store = sqlite3store.New(db.DB)
+	sessionManager.Store = mysqlstore.New(db.DB)
 	sessionManager.Lifetime = time.Duration(cfg.Session.Lifetime) * time.Hour
 	sessionManager.Cookie.Persist = true
 	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
@@ -63,7 +63,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err, "Failed to initialize authenticator")
 	}
-	enforcer, err := auth.NewEnforcer("sqlite3", cfg.DB.DSN, "auth_model.conf")
+	enforcer, err := auth.NewEnforcer("mysql", cfg.DB.DSN, "auth_model.conf")
 	if err != nil {
 		log.Fatal(err, "Failed to initialize enforcer")
 	}
