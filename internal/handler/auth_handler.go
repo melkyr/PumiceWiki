@@ -7,19 +7,23 @@ import (
 	"go-wiki-app/internal/session"
 	"io"
 	"net/http"
+
+	"github.com/casbin/casbin/v2"
 )
 
 // AuthHandler holds the dependencies for the authentication handlers.
 type AuthHandler struct {
 	auth    *auth.Authenticator
 	session session.Manager
+	enforcer *casbin.Enforcer
 }
 
 // NewAuthHandler creates a new AuthHandler.
-func NewAuthHandler(a *auth.Authenticator, sm session.Manager) *AuthHandler {
+func NewAuthHandler(a *auth.Authenticator, sm session.Manager, e *casbin.Enforcer) *AuthHandler {
 	return &AuthHandler{
 		auth:    a,
 		session: sm,
+		enforcer: e,
 	}
 }
 
@@ -60,6 +64,24 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Define a struct to hold the custom claims, including roles.
+	// We expect the OIDC provider (Casdoor) to be configured to send roles in this claim.
+	var claims struct {
+		Roles []string `json:"roles"`
+	}
+	if err := idToken.Claims(&claims); err != nil {
+		http.Error(w, "Failed to parse claims: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// First, remove any existing roles for this user to handle role changes.
+	h.enforcer.DeleteRolesForUser(idToken.Subject)
+
+	// Grant the new roles from the token.
+	for _, role := range claims.Roles {
+		h.enforcer.AddRoleForUser(idToken.Subject, role)
 	}
 
 	h.session.Put(r.Context(), "raw_id_token", rawIDToken)

@@ -134,7 +134,38 @@ The application seeds the database with a default set of roles and permissions o
   - Can access the edit form for all pages (`/edit/*`).
   - Can save pages (`/save/*`).
 
-To assign a user to the `editor` role, you must do so manually within Casdoor and ensure the corresponding policy is added to the Casbin database. This part of the workflow is currently manual.
+To assign a user to the `editor` role, you can now do so directly in the Casdoor UI. The user's roles will be automatically synchronized with the wiki application upon login.
+
+### Creating an Editor User (Automated Workflow)
+
+This application is configured to automatically synchronize user roles from the Casdoor identity provider. When a user logs in, their roles are read from the authentication token and applied in the wiki's authorization system.
+
+To make a user an `editor`, you need to perform two steps in the Casdoor dashboard.
+
+**Step 1: Configure Casdoor to Send Roles in the Token**
+
+You need to tell Casdoor to include the user's roles in the ID Token it issues for the wiki application.
+
+1.  Log in to the Casdoor dashboard at `http://casdoor.local:8000`.
+2.  Navigate to **Applications** and select your wiki application for editing.
+3.  Find the section for **Token Configuration** or **Claims**.
+4.  Add a new claim mapping:
+    -   **Claim Name:** `roles`
+    -   **Token Type:** `ID Token`
+    -   **Claim Value:** `user.roles` (This assumes Casdoor uses an expression like this to access the user's assigned roles. The exact value may differ depending on Casdoor's configuration options.)
+5.  Save the changes.
+
+**Step 2: Assign the 'editor' Role to a User**
+
+Now you can assign the `editor` role to any user.
+
+1.  In the Casdoor dashboard, navigate to **Users**.
+2.  Select the user you want to make an editor.
+3.  Find the **Roles** section for the user.
+4.  Assign them the `editor` role. (You may need to create the `editor` role in the **Roles** section of Casdoor first if it doesn't exist).
+5.  Save the changes.
+
+Now, the next time this user logs into the wiki application, they will automatically be granted editor permissions.
 
 ## Developer Workflow: Modifying Static Assets
 
