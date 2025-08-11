@@ -17,6 +17,13 @@ type PageRepository interface {
 	DeletePage(ctx context.Context, id int64) error
 }
 
+// PageServicer defines the interface for interacting with pages.
+type PageServicer interface {
+	ViewPage(ctx context.Context, title string) (*data.Page, error)
+	CreatePage(ctx context.Context, title, content, authorID string) (*data.Page, error)
+	UpdatePage(ctx context.Context, id int64, title, content string) (*data.Page, error)
+}
+
 // PageService provides business logic for managing pages.
 type PageService struct {
 	repo      PageRepository

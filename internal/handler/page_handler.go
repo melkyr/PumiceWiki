@@ -14,13 +14,13 @@ import (
 
 // PageHandler holds the dependencies for the page handlers.
 type PageHandler struct {
-	pageService *service.PageService
+	pageService service.PageServicer
 	view        *view.View
 	log         logger.Logger
 }
 
 // NewPageHandler creates a new PageHandler with the given dependencies.
-func NewPageHandler(ps *service.PageService, v *view.View, log logger.Logger) *PageHandler {
+func NewPageHandler(ps service.PageServicer, v *view.View, log logger.Logger) *PageHandler {
 	return &PageHandler{
 		pageService: ps,
 		view:        v,
@@ -34,7 +34,9 @@ func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middl
 	if title == "Home" {
 		_, err := h.pageService.ViewPage(r.Context(), title)
 		if err != nil {
-			http.Redirect(w, r, "/edit/Home", http.StatusFound)
+			if err := h.view.Render(w, r, "welcome.html", nil); err != nil {
+				return &middleware.AppError{Error: err, Message: "Failed to render welcome page", Code: http.StatusInternalServerError}
+			}
 			return nil
 		}
 	}
@@ -91,13 +93,13 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 	}
 
 	// If it's an HTMX request, render the form again with a success message.
-	if r.Header.Get("HX-Request") == "true" && !middleware.IsBasicMode(r.Context()) {
+	if r.Header.Get("HX-Request") == "true" && !view.IsBasicMode(r.Context()) {
 		data := map[string]interface{}{
 			"Page":    page,
 			"Message": "Saved!",
 		}
 		// Render the partial view for HTMX requests
-		if err := h.view.Render(w, r, "htmx/edit_form.html", data); err !=.Nil() {
+		if err := h.view.Render(w, r, "htmx/edit_form.html", data); err != nil {
 			return &middleware.AppError{Error: err, Message: "Failed to render HTMX view", Code: http.StatusInternalServerError}
 		}
 		return nil

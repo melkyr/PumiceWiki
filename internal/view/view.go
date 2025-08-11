@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"net/http"
 	"path/filepath"
 )
 
@@ -48,7 +49,6 @@ func New(templateFS fs.FS) (*View, error) {
 	return v, nil
 }
 
-import "go-wiki-app/internal/middleware"
 // Render executes a specific template by name.
 func (v *View) Render(w io.Writer, r *http.Request, name string, data map[string]interface{}) error {
 	ts, ok := v.templates[name]
@@ -60,7 +60,7 @@ func (v *View) Render(w io.Writer, r *http.Request, name string, data map[string
 	if data == nil {
 		data = make(map[string]interface{})
 	}
-	data["IsBasicMode"] = middleware.IsBasicMode(r.Context())
+	data["IsBasicMode"] = IsBasicMode(r.Context())
 
 	// Execute the template into a buffer first to catch any errors
 	// before writing to the response writer.
