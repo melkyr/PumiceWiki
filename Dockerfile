@@ -23,20 +23,22 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-s -w' -o /app/server ./cmd/s
 # Using a distroless image is a security best practice as it contains only the application and its runtime dependencies.
 FROM gcr.io/distroless/static-debian11
 
-# Set the working directory
-WORKDIR /
+# Create a dedicated directory for the app
+WORKDIR /app
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/server .
 
-# Copy the migrations directory and the default config file into the final image.
+# Copy the migrations directory, config file, and auth model into the final image.
 # The application needs these to run.
 COPY migrations ./migrations
 COPY config.yml ./config.yml
+COPY auth_model.conf ./auth_model.conf
 
 # Expose the port the application will run on.
 # This is documentation; the actual port mapping is done in docker-compose.
 EXPOSE 8080
 
 # The command to run when the container starts.
-CMD ["/server"]
+# We use ./server because our WORKDIR is /app.
+CMD ["./server"]

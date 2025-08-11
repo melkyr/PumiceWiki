@@ -38,7 +38,7 @@ func main() {
 	}
 
 	log.Info("Applying database migrations...")
-	if err := data.ApplyMigrations(cfg.DB.DSN, "/migrations"); err != nil {
+	if err := data.ApplyMigrations(cfg.DB.DSN, "migrations"); err != nil {
 		log.Fatal(err, "Failed to apply migrations")
 	}
 	log.Info("Migrations applied successfully.")

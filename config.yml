@@ -10,7 +10,7 @@ server:
     keyFile: "key.pem"
 
 db:
-  dsn: "wiki.db" # Path to the SQLite database file
+  dsn: "wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true" # Path to the SQLite database file
 
 oidc:
   # These values must be obtained from your Casdoor instance

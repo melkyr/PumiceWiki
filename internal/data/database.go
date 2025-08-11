@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"path/filepath"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
@@ -26,8 +27,13 @@ func ApplyMigrations(dsn string, migrationsPath string) error {
 	// e.g., "mysql://user:pass@tcp(host:port)/dbname"
 	migrateDSN := fmt.Sprintf("mysql://%s", dsn)
 
-	// The migrationsPath needs to be in the format "file://path/to/migrations"
-	sourceURL := fmt.Sprintf("file://%s", migrationsPath)
+	// To ensure the path is correctly interpreted by the migrate library,
+	// convert it to an absolute path and then format it as a file URL.
+	absPath, err := filepath.Abs(migrationsPath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path for migrations: %w", err)
+	}
+	sourceURL := fmt.Sprintf("file://%s", absPath)
 
 	m, err := migrate.New(sourceURL, migrateDSN)
 	if err != nil {

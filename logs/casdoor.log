@@ -272,3 +272,14 @@
 2025/08/10 22:54:28.540 [D]  |     10.89.0.12|[97;42m 200 [0m|   2.811071ms|   match|[97;44m GET     [0m /api/get-organization-applications   r:/api/get-organization-applications
 2025/08/10 22:54:37.806 [I]  (10.89.0.12) subOwner = built-in, subName = admin, method = GET, urlPath = /api/get-dashboard, obj.Owner = , obj.Name = , result = allow
 2025/08/10 22:54:37.808 [D]  |     10.89.0.12|[97;42m 200 [0m|   3.294133ms|   match|[97;44m GET     [0m /api/get-dashboard   r:/api/get-dashboard
+2025/08/11 16:47:55.430 [I]  http server Running on http://:8000
+2025/08/11 16:49:39.696 [I]  http server Running on http://:8000
+2025/08/11 17:05:42.538 [I]  http server Running on http://:8000
+2025/08/11 17:27:43.800 [I]  http server Running on http://:8000
+2025/08/11 17:47:30.275 [I]  http server Running on http://:8000
+2025/08/11 18:39:18.914 [I]  http server Running on http://:8000
+2025/08/11 18:52:11.045 [I]  http server Running on http://:8000
+2025/08/11 19:03:35.181 [I]  http server Running on http://:8000
+2025/08/11 19:13:41.804 [I]  http server Running on http://:8000
+2025/08/11 19:13:42.274 [I]  (10.89.0.35) subOwner = anonymous, subName = anonymous, method = GET, urlPath = /.well-known/openid-configuration, obj.Owner = , obj.Name = , result = allow
+2025/08/11 19:13:42.275 [D]  |     10.89.0.35|[97;42m 200 [0m|     2.4772ms|   match|[97;44m GET     [0m /.well-known/openid-configuration   r:/.well-known/openid-configuration
