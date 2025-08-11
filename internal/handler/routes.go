@@ -49,6 +49,7 @@ func NewRouter(
 		r.Method("GET", "/view/{title}", errorMiddleware(pageHandler.viewHandler))
 		r.Method("GET", "/edit/{title}", errorMiddleware(pageHandler.editHandler))
 		r.Method("POST", "/save/{title}", errorMiddleware(pageHandler.saveHandler))
+		r.Method("GET", "/list", errorMiddleware(pageHandler.listHandler))
 	})
 
 	return r

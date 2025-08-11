@@ -86,6 +86,16 @@ func (r *SQLPageRepository) UpdatePage(ctx context.Context, page *Page) error {
 	return nil
 }
 
+// GetAllPages retrieves all pages from the database.
+func (r *SQLPageRepository) GetAllPages(ctx context.Context) ([]*Page, error) {
+	var pages []*Page
+	query := `SELECT * FROM pages`
+	if err := r.db.SelectContext(ctx, &pages, query); err != nil {
+		return nil, fmt.Errorf("failed to get all pages: %w", err)
+	}
+	return pages, nil
+}
+
 // DeletePage removes a page from the database by its ID.
 func (r *SQLPageRepository) DeletePage(ctx context.Context, id int64) error {
 	query := `DELETE FROM pages WHERE id = ?`

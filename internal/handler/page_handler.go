@@ -46,8 +46,10 @@ func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middl
 		return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
 	}
 
+	userInfo := middleware.GetUserInfo(r.Context())
 	data := map[string]interface{}{
-		"Page": page,
+		"Page":     page,
+		"UserInfo": userInfo,
 	}
 	if err := h.view.Render(w, r, "view.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render view", Code: http.StatusInternalServerError}
@@ -73,6 +75,21 @@ func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) *middl
 }
 
 // saveHandler handles the form submission for creating or updating a page.
+func (h *PageHandler) listHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
+	pages, err := h.pageService.GetAllPages(r.Context())
+	if err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to retrieve pages", Code: http.StatusInternalServerError}
+	}
+
+	data := map[string]interface{}{
+		"Pages": pages,
+	}
+	if err := h.view.Render(w, r, "list.html", data); err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to render list page", Code: http.StatusInternalServerError}
+	}
+	return nil
+}
+
 func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	title := chi.URLParam(r, "title")
 	content := r.FormValue("content")

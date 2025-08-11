@@ -13,6 +13,7 @@ type PageRepository interface {
 	CreatePage(ctx context.Context, page *data.Page) error
 	GetPageByTitle(ctx context.Context, title string) (*data.Page, error)
 	GetPageByID(ctx context.Context, id int64) (*data.Page, error)
+	GetAllPages(ctx context.Context) ([]*data.Page, error)
 	UpdatePage(ctx context.Context, page *data.Page) error
 	DeletePage(ctx context.Context, id int64) error
 }
@@ -22,6 +23,7 @@ type PageServicer interface {
 	ViewPage(ctx context.Context, title string) (*data.Page, error)
 	CreatePage(ctx context.Context, title, content, authorID string) (*data.Page, error)
 	UpdatePage(ctx context.Context, id int64, title, content string) (*data.Page, error)
+	GetAllPages(ctx context.Context) ([]*data.Page, error)
 }
 
 // PageService provides business logic for managing pages.
@@ -92,4 +94,9 @@ func (s *PageService) UpdatePage(ctx context.Context, id int64, title, content s
 // DeletePage handles the deletion of a page by its ID.
 func (s *PageService) DeletePage(ctx context.Context, id int64) error {
 	return s.repo.DeletePage(ctx, id)
+}
+
+// GetAllPages retrieves all pages.
+func (s *PageService) GetAllPages(ctx context.Context) ([]*data.Page, error) {
+	return s.repo.GetAllPages(ctx)
 }

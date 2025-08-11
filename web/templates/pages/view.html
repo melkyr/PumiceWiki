@@ -10,4 +10,10 @@
     </div>
     <hr>
     <a href="/edit/{{.Page.Title}}">Edit this page</a>
+    {{range .UserInfo.Roles}}
+        {{if eq . "editor"}}
+            <a href="/edit/NewPage">Create a new page</a>
+            <a href="/list">Wiki Pages</a>
+        {{end}}
+    {{end}}
 {{end}}
