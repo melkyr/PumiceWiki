@@ -13,11 +13,13 @@ services:
       # DSN for MariaDB connection. The 'go-wiki-app' is the database name.
       # The format is user:password@tcp(host:port)/dbname
       - WIKI_DB_DSN=wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true
-      - WIKI_OIDC_ISSUER_URL=http://localhost:8000
+      - WIKI_OIDC_ISSUER_URL=http://casdoor.local:8000
       - WIKI_OIDC_CLIENT_ID=952d5adbbb238886eb77
       - WIKI_OIDC_CLIENT_SECRET=d24d6faf876018ed37c3b9b422151fa97976b30f
       - WIKI_OIDC_REDIRECT_URL=http://localhost:8080/auth/callback
       - WIKI_SESSION_SECRET_KEY=a-very-secret-and-secure-key-for-testing # Use a strong secret in production
+    extra_hosts:
+      - "casdoor.local:host-gateway"
     networks:
       - go-wiki-net
     depends_on:
