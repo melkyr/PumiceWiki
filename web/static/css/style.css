@@ -6,3 +6,13 @@ body {
     padding: 1rem;
     line-height: 1.6;
 }
+
+/* For the HTMX save message */
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.fade-out {
+    animation: fadeOut 2s forwards;
+}

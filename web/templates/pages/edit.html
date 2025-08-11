@@ -3,13 +3,29 @@
 {{define "title"}}Editing {{.Page.Title}}{{end}}
 
 {{define "content"}}
-    <h2>Editing {{.Page.Title}}</h2>
-    <form action="/save/{{.Page.Title}}" method="POST">
-        <div>
-            <textarea name="content" rows="20" cols="80">{{.Page.Content}}</textarea>
-        </div>
-        <div>
-            <input type="submit" value="Save Page">
-        </div>
-    </form>
+    <div id="edit-content">
+        <h2>Editing {{.Page.Title}}</h2>
+        <form action="/save/{{.Page.Title}}" method="POST"
+              {{if not .IsBasicMode}}
+              hx-post="/save/{{.Page.Title}}"
+              hx-target="#edit-content"
+              hx-swap="outerHTML"
+              {{end}}>
+            <div>
+                <textarea id="editor" name="content" rows="20" cols="80">{{.Page.Content}}</textarea>
+            </div>
+            <div>
+                <input type="submit" value="Save Page">
+                <span id="save-status"></span>
+            </div>
+        </form>
+    </div>
+{{end}}
+
+{{define "scripts"}}
+    {{if not .IsBasicMode}}
+    <script>
+        var easyMDE = new EasyMDE({element: document.getElementById('editor')});
+    </script>
+    {{end}}
 {{end}}

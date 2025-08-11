@@ -1,0 +1,12 @@
+<div id="edit-content">
+    <h2>Editing {{.Page.Title}}</h2>
+    <form hx-post="/save/{{.Page.Title}}" hx-target="#edit-content" hx-swap="outerHTML">
+        <div>
+            <textarea name="content" rows="20" cols="80">{{.Page.Content}}</textarea>
+        </div>
+        <div>
+            <input type="submit" value="Save Page">
+            <span id="save-status" class="fade-out">{{.Message}}</span>
+        </div>
+    </form>
+</div>

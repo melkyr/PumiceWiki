@@ -46,9 +46,8 @@ func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middl
 
 	data := map[string]interface{}{
 		"Page": page,
-		"User": middleware.GetUserInfo(r.Context()),
 	}
-	if err := h.view.Render(w, "view.html", data); err != nil {
+	if err := h.view.Render(w, r, "view.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render view", Code: http.StatusInternalServerError}
 	}
 	return nil
@@ -64,9 +63,8 @@ func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) *middl
 
 	data := map[string]interface{}{
 		"Page": page,
-		"User": middleware.GetUserInfo(r.Context()),
 	}
-	if err := h.view.Render(w, "edit.html", data); err != nil {
+	if err := h.view.Render(w, r, "edit.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render edit page", Code: http.StatusInternalServerError}
 	}
 	return nil
@@ -81,7 +79,7 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 
 	page, err := h.pageService.ViewPage(r.Context(), title)
 	if err != nil {
-		if _, err := h.pageService.CreatePage(r.Context(), title, content, authorID); err != nil {
+		if page, err = h.pageService.CreatePage(r.Context(), title, content, authorID); err != nil {
 			return &middleware.AppError{Error: err, Message: "Failed to create page", Code: http.StatusInternalServerError}
 		}
 	} else {
@@ -90,6 +88,19 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 		if _, err := h.pageService.UpdatePage(r.Context(), page.ID, page.Title, page.Content); err != nil {
 			return &middleware.AppError{Error: err, Message: "Failed to update page", Code: http.StatusInternalServerError}
 		}
+	}
+
+	// If it's an HTMX request, render the form again with a success message.
+	if r.Header.Get("HX-Request") == "true" && !middleware.IsBasicMode(r.Context()) {
+		data := map[string]interface{}{
+			"Page":    page,
+			"Message": "Saved!",
+		}
+		// Render the partial view for HTMX requests
+		if err := h.view.Render(w, r, "htmx/edit_form.html", data); err !=.Nil() {
+			return &middleware.AppError{Error: err, Message: "Failed to render HTMX view", Code: http.StatusInternalServerError}
+		}
+		return nil
 	}
 
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)

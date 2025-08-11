@@ -26,6 +26,7 @@ func NewRouter(
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
 	r.Use(sessionManager.LoadAndSave)
+	r.Use(middleware.SettingsMiddleware)
 
 	staticFS, _ := fs.Sub(web.StaticFS, "static")
 	fileServer := http.FileServer(http.FS(staticFS))
