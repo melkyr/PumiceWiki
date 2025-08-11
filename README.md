@@ -62,18 +62,33 @@ This application is designed to be run with Docker Compose, which orchestrates t
 
 The application is configured via environment variables, which can be set directly in the `docker-compose.yml` file or loaded from a `.env` file.
 
-**A. Casdoor Setup:**
+**A. Local Development Hostname**
+
+For the application and the Casdoor identity provider to communicate correctly in a local Docker environment, you need to map the hostname `casdoor.local` to your local machine's loopback address.
+
+Add the following line to your `hosts` file:
+
+```
+127.0.0.1 casdoor.local
+```
+
+-   **On macOS or Linux:** The file is located at `/etc/hosts`.
+-   **On Windows:** The file is located at `C:\Windows\System32\drivers\etc\hosts`.
+
+This is a one-time setup that allows your browser and the Go application container to refer to the Casdoor service by the same name.
+
+**B. Casdoor Setup:**
 
 Before you can log in to the wiki, you need to configure Casdoor and get OIDC client credentials.
 
 1.  Run `docker-compose up` once to start the Casdoor service.
-2.  Navigate to `http://localhost:8000` in your browser.
+2.  Navigate to `http://casdoor.local:8000` in your browser.
 3.  Log in with the default credentials: `admin` / `casdoor`.
 4.  In the Casdoor UI, create a new **Application**.
     -   Note the `Client ID` and `Client Secret`.
 5.  Ensure the **Redirect URL** in your Casdoor application settings is set to `http://localhost:8080/auth/callback`.
 
-**B. Wiki Application Setup:**
+**C. Wiki Application Setup:**
 
 1.  Open the `docker-compose.yml` file.
 2.  Find the `environment` section for the `app` service.
@@ -100,7 +115,7 @@ All configuration can be set via environment variables, which override the defau
 | `WIKI_SERVER_TLS_CERTFILE`    | Path to the TLS certificate file.                     | `cert.pem`               |
 | `WIKI_SERVER_TLS_KEYFILE`     | Path to the TLS key file.                             | `key.pem`                |
 | `WIKI_DB_DSN`                 | Data Source Name for the database.                    | `wiki.db`                |
-| `WIKI_OIDC_ISSUER_URL`        | The issuer URL of your OIDC provider.                 | `http://casdoor:8000`    |
+| `WIKI_OIDC_ISSUER_URL`        | The issuer URL of your OIDC provider.                 | `http://casdoor.local:8000` |
 | `WIKI_OIDC_CLIENT_ID`         | The client ID for the OIDC application.               | `YOUR_CLIENT_ID`         |
 | `WIKI_OIDC_CLIENT_SECRET`     | The client secret for the OIDC application.           | `YOUR_CLIENT_SECRET`     |
 | `WIKI_OIDC_REDIRECT_URL`      | The callback URL for OIDC.                            | `http://localhost:8080/auth/callback` |
