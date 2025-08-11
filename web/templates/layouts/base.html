@@ -1,0 +1,30 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Go Wiki{{end}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <header>
+        <h1><a href="/">Go Wiki</a></h1>
+        <nav>
+            {{if ne .User.Subject "anonymous"}}
+                <span>Welcome, {{.User.Subject}}</span> | <a href="/auth/logout">Logout</a>
+            {{else}}
+                <a href="/auth/login">Login</a>
+            {{end}}
+        </nav>
+    </header>
+    <main>
+        {{block "content" .}}{{end}}
+    </main>
+    <footer>
+        <p>Powered by Go & HTMX</p>
+    </footer>
+</body>
+</html>
+{{end}}

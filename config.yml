@@ -1,0 +1,30 @@
+# Default configuration for the Go Wiki App
+# These settings can be overridden by environment variables
+# (e.g., WIKI_SERVER_PORT=9090)
+
+server:
+  port: "8080"
+  tls:
+    enabled: false
+    certFile: "cert.pem"
+    keyFile: "key.pem"
+
+db:
+  dsn: "wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true" # Path to the SQLite database file
+
+oidc:
+  # These values must be obtained from your Casdoor instance
+  issuer_url: "http://localhost:8000"
+  client_id: "YOUR_CASDOOR_CLIENT_ID"
+  client_secret: "YOUR_CASDOOR_CLIENT_SECRET"
+  redirect_url: "http://localhost:8080/auth/callback"
+
+log:
+  level: "info" # "debug", "info", "warn", "error"
+  format: "console" # "console" for development, "json" for production
+
+session:
+  # This key must be 32 bytes long and should be kept secret.
+  # Generate a new one for production, e.g., with: openssl rand -base64 32
+  secret_key: "CHANGE_ME_IN_PRODUCTION_SECRET!!"
+  lifetime_hours: 24

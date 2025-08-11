@@ -1,0 +1,9 @@
+{{template "base" .}}
+
+{{define "title"}}Error {{.StatusCode}}{{end}}
+
+{{define "content"}}
+    <h2>Error {{.StatusCode}}</h2>
+    <p>{{.StatusText}}</p>
+    <p>Sorry, something went wrong. <a href="/">Return to the home page.</a></p>
+{{end}}

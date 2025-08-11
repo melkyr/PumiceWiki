@@ -1,0 +1,75 @@
+version: '3.8'
+
+networks:
+  go-wiki-net:
+    driver: bridge
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # DSN for MariaDB connection. The 'go-wiki-app' is the database name.
+      # The format is user:password@tcp(host:port)/dbname
+      - WIKI_DB_DSN=wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true
+      - WIKI_OIDC_ISSUER_URL=http://casdoor:8000
+      - WIKI_OIDC_CLIENT_ID=952d5adbbb238886eb77
+      - WIKI_OIDC_CLIENT_SECRET=d24d6faf876018ed37c3b9b422151fa97976b30f
+      - WIKI_OIDC_REDIRECT_URL=http://localhost:8080/auth/callback
+      - WIKI_SESSION_SECRET_KEY=a-very-secret-and-secure-key-for-testing # Use a strong secret in production
+    networks:
+      - go-wiki-net
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      casdoor:
+        condition: service_started
+
+  casdoor:
+    image: casbin/casdoor:latest
+    container_name: casdoor
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - GIN_MODE=release
+      # Casdoor database configuration
+      - CASDOOR_DB_TYPE=mysql
+      - CASDOOR_DB_HOST=mariadb
+      - CASDOOR_DB_PORT=3306
+      - CASDOOR_DB_USER=root
+      - CASDOOR_DB_PASSWORD=casdoor_root_pass
+      - CASDOOR_DB_NAME=casdoor
+    volumes:
+      - ./conf:/conf
+      - ./logs:/logs
+    networks:
+      - go-wiki-net
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+  mariadb:
+    image: mariadb:10.5
+    container_name: mariadb
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=casdoor_root_pass # Root password for casdoor
+      - MYSQL_DATABASE=go_wiki_app          # Database for our app
+      - MYSQL_USER=wikiuser                 # User for our app
+      - MYSQL_PASSWORD=wikipass             # Password for our app
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./docker/mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - go-wiki-net
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+volumes:
+  mariadb_data:

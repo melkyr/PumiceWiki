@@ -1,0 +1,13 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Page.Title}} - Go Wiki{{end}}
+
+{{define "content"}}
+    <h2>{{.Page.Title}}</h2>
+    <div>
+        <!-- In a real app, this should be sanitized HTML -->
+        <p>{{.Page.Content}}</p>
+    </div>
+    <hr>
+    <a href="/edit/{{.Page.Title}}">Edit this page</a>
+{{end}}
