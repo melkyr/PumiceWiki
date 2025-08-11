@@ -22,10 +22,10 @@ func Error(log logger.Logger, view *view.View) func(AppHandler) http.Handler {
 	return func(next AppHandler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
-				if r := recover(); r != nil {
-					err, ok := r.(error)
+				if rec := recover(); rec != nil {
+					err, ok := rec.(error)
 					if !ok {
-						err = fmt.Errorf("%v", r)
+						err = fmt.Errorf("%v", rec)
 					}
 					log.Error(err, "Panic recovered")
 					data := map[string]interface{}{
@@ -33,7 +33,7 @@ func Error(log logger.Logger, view *view.View) func(AppHandler) http.Handler {
 						"StatusText": "Internal Server Error",
 					}
 					w.WriteHeader(http.StatusInternalServerError)
-					view.Render(w, "error.html", data)
+					view.Render(w, r, "error.html", data)
 				}
 			}()
 
@@ -45,7 +45,7 @@ func Error(log logger.Logger, view *view.View) func(AppHandler) http.Handler {
 					"StatusText": err.Message,
 				}
 				w.WriteHeader(err.Code)
-				view.Render(w, "error.html", data)
+				view.Render(w, r, "error.html", data)
 			}
 		})
 	}

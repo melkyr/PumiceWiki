@@ -81,7 +81,7 @@ func main() {
 	pageRepository := data.NewSQLPageRepository(db)
 	pageService := service.NewPageService(pageRepository)
 	pageHandler := handler.NewPageHandler(pageService, viewService, log)
-	authHandler := handler.NewAuthHandler(authenticator, sessionManager)
+	authHandler := handler.NewAuthHandler(authenticator, sessionManager, enforcer)
 
 	authzMiddleware := middleware.Authorizer(enforcer, sessionManager)
 	errorMiddleware := middleware.Error(log, viewService)
