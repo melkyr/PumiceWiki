@@ -31,22 +31,26 @@ func NewPageHandler(ps service.PageServicer, v *view.View, log logger.Logger) *P
 // viewHandler retrieves the page title from the URL and renders the page.
 func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	title := chi.URLParam(r, "title")
-	if title == "Home" {
-		_, err := h.pageService.ViewPage(r.Context(), title)
-		if err != nil {
+	userInfo := middleware.GetUserInfo(r.Context())
+
+	page, err := h.pageService.ViewPage(r.Context(), title)
+	if err != nil {
+		// If page is not found, check if it's the home page and user is anonymous
+		if title == "Home" && userInfo.Subject == "anonymous" {
 			if err := h.view.Render(w, r, "welcome.html", nil); err != nil {
 				return &middleware.AppError{Error: err, Message: "Failed to render welcome page", Code: http.StatusInternalServerError}
 			}
 			return nil
 		}
+
+		// For authenticated users on home, or any user on a different non-existent page
+		if title == "Home" {
+			page = &data.Page{Title: "Home", Content: "Welcome! This page is empty."}
+		} else {
+			return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
+		}
 	}
 
-	page, err := h.pageService.ViewPage(r.Context(), title)
-	if err != nil {
-		return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
-	}
-
-	userInfo := middleware.GetUserInfo(r.Context())
 	data := map[string]interface{}{
 		"Page":     page,
 		"UserInfo": userInfo,
