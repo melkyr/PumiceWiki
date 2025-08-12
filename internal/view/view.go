@@ -56,6 +56,11 @@ func (v *View) Render(w io.Writer, r *http.Request, name string, data map[string
 		return fmt.Errorf("template %s not found", name)
 	}
 
+	// Set the Content-Type header to ensure middleware like compression works correctly.
+	if rw, ok := w.(http.ResponseWriter); ok {
+		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	}
+
 	// Add the IsBasicMode flag to the data map.
 	if data == nil {
 		data = make(map[string]interface{})
