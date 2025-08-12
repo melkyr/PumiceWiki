@@ -7,6 +7,7 @@ import (
 	"go-wiki-app/internal/middleware"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
+	"html/template"
 	"net/http"
 	"time"
 
@@ -46,7 +47,11 @@ func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middl
 
 		// For authenticated users on home, or any user on a different non-existent page
 		if title == "Home" {
-			page = &data.Page{Title: "Home", Content: "Welcome! This page is empty."}
+			page = &data.Page{
+				Title:       "Home",
+				Content:     "Welcome! This page is empty.",
+				HTMLContent: template.HTML("<p>Welcome! This page is empty.</p>"),
+			}
 		} else {
 			return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
 		}
@@ -73,8 +78,10 @@ func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) *middl
 		page = &data.Page{Title: title}
 	}
 
+	userInfo := middleware.GetUserInfo(r.Context())
 	data := map[string]interface{}{
-		"Page": page,
+		"Page":     page,
+		"UserInfo": userInfo,
 	}
 	if err := h.view.Render(w, r, "edit.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render edit page", Code: http.StatusInternalServerError}
@@ -89,8 +96,10 @@ func (h *PageHandler) listHandler(w http.ResponseWriter, r *http.Request) *middl
 		return &middleware.AppError{Error: err, Message: "Failed to retrieve pages", Code: http.StatusInternalServerError}
 	}
 
+	userInfo := middleware.GetUserInfo(r.Context())
 	data := map[string]interface{}{
-		"Pages": pages,
+		"Pages":    pages,
+		"UserInfo": userInfo,
 	}
 	if err := h.view.Render(w, r, "list.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render list page", Code: http.StatusInternalServerError}

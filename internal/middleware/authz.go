@@ -22,8 +22,9 @@ func Authorizer(e *casbin.Enforcer, sm session.Manager) func(http.Handler) http.
 				http.Error(w, "Authorization error", http.StatusInternalServerError)
 				return
 			}
+			displayName := sm.GetString(r.Context(), "user_display_name")
 
-			userInfo := &UserInfo{Subject: subject, Roles: roles}
+			userInfo := &UserInfo{Subject: subject, Roles: roles, DisplayName: displayName}
 			ctx := SetUserInfo(r.Context(), userInfo)
 			r = r.WithContext(ctx)
 

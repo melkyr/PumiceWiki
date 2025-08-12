@@ -12,6 +12,10 @@ A lightweight, fast, and secure wiki application built with Go, HTMX, and Casdoo
 - **Structured Logging:** Configurable, structured logging with `zerolog`.
 - **TLS Support:** Optional TLS/HTTPS support.
 
+### Note on Home Page Content
+
+The default content for the "Home" page, which is displayed when the page does not yet exist in the database, is hardcoded within the application. It is not sourced from an external template file. If you need to change this default message ("Welcome! This page is empty."), you can find it in `internal/handler/page_handler.go` inside the `viewHandler` function.
+
 ## Architecture Flow
 
 The following diagram illustrates the request flow through the application:

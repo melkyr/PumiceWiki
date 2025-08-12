@@ -9,8 +9,9 @@ const userContextKey = contextKey("user")
 
 // UserInfo represents the essential user information stored in the session and request context.
 type UserInfo struct {
-	Subject string
-	Roles   []string
+	Subject     string
+	Roles       []string
+	DisplayName string
 }
 
 // GetUserInfo retrieves the user information from the request context.

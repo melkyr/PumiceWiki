@@ -69,13 +69,23 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	// Define a struct to hold the custom claims, including roles.
 	// We expect the OIDC provider (Casdoor) to be configured to send roles in this claim.
 	var claims struct {
-		Roles []struct {
+		DisplayName string `json:"displayName"`
+		Name        string `json:"name"`
+		Roles       []struct {
 			Name string `json:"name"`
 		} `json:"roles"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		http.Error(w, "Failed to parse claims: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Determine the best display name to use
+	var displayName string
+	if claims.DisplayName != "" {
+		displayName = claims.DisplayName
+	} else {
+		displayName = claims.Name
 	}
 
 	// First, remove any existing roles for this user to handle role changes.
@@ -88,6 +98,7 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	h.session.Put(r.Context(), "raw_id_token", rawIDToken)
 	h.session.Put(r.Context(), "user_subject", idToken.Subject)
+	h.session.Put(r.Context(), "user_display_name", displayName)
 
 	http.Redirect(w, r, "/", http.StatusFound)
 }
