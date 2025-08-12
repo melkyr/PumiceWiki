@@ -133,7 +133,7 @@ func main() {
 // seedDefaultPolicies ensures that the application has a baseline set of authorization rules.
 // It checks if each default policy exists before adding it, making the operation idempotent
 // and safe to run on every application start.
-func seedDefaultPolicies(e *casbin.Enforcer, log logger.Logger) {
+func seedDefaultPolicies(e casbin.IEnforcer, log logger.Logger) {
 	log.Info("Seeding default authorization policies...")
 
 	// Default policies grant basic access to anonymous users and content management
