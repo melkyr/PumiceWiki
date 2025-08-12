@@ -1,11 +1,14 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"go-wiki-app/internal/data"
+	"html/template"
 	"time"
 
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/yuin/goldmark"
 )
 
 // PageRepository defines the interface for database operations on pages.
@@ -30,6 +33,7 @@ type PageServicer interface {
 type PageService struct {
 	repo      PageRepository
 	sanitizer *bluemonday.Policy
+	markdown  goldmark.Markdown
 }
 
 // NewPageService creates a new PageService with the given repository.
@@ -38,10 +42,19 @@ func NewPageService(repo PageRepository) *PageService {
 	// UGCPolicy is a good starting point as it allows basic formatting
 	// like links, lists, bold, etc., while stripping out dangerous HTML.
 	sanitizer := bluemonday.UGCPolicy()
+	sanitizer.AllowImages()
+
+	// Create a new goldmark markdown converter
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+		// Add extensions here if needed, e.g., tables, strikethrough
+		),
+	)
 
 	return &PageService{
 		repo:      repo,
 		sanitizer: sanitizer,
+		markdown:  markdown,
 	}
 }
 
@@ -63,9 +76,24 @@ func (s *PageService) CreatePage(ctx context.Context, title, content, authorID s
 	return page, nil
 }
 
-// ViewPage retrieves a single page by its title.
+// ViewPage retrieves a single page by its title, converts its content to HTML, and sanitizes it.
 func (s *PageService) ViewPage(ctx context.Context, title string) (*data.Page, error) {
-	return s.repo.GetPageByTitle(ctx, title)
+	page, err := s.repo.GetPageByTitle(ctx, title)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert markdown content to HTML
+	var buf bytes.Buffer
+	if err := s.markdown.Convert([]byte(page.Content), &buf); err != nil {
+		return nil, err
+	}
+
+	// Sanitize the HTML content
+	sanitizedHTML := s.sanitizer.SanitizeBytes(buf.Bytes())
+	page.HTMLContent = template.HTML(sanitizedHTML)
+
+	return page, nil
 }
 
 // UpdatePage handles the logic for updating an existing page.
