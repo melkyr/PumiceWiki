@@ -95,20 +95,24 @@ func (h *PageHandler) listHandler(w http.ResponseWriter, r *http.Request) *middl
 }
 
 func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
-	title := chi.URLParam(r, "title")
+	originalTitle := chi.URLParam(r, "title")
+	newTitle := r.FormValue("title")
 	content := r.FormValue("content")
 	userInfo := middleware.GetUserInfo(r.Context())
 	authorID := userInfo.Subject
 
-	page, err := h.pageService.ViewPage(r.Context(), title)
+	// Check if we are creating a new page or updating an existing one
+	page, err := h.pageService.ViewPage(r.Context(), originalTitle)
 	if err != nil {
-		if page, err = h.pageService.CreatePage(r.Context(), title, content, authorID); err != nil {
+		// Create new page
+		if page, err = h.pageService.CreatePage(r.Context(), newTitle, content, authorID); err != nil {
 			return &middleware.AppError{Error: err, Message: "Failed to create page", Code: http.StatusInternalServerError}
 		}
 	} else {
+		// Update existing page
 		page.Content = content
 		page.UpdatedAt = time.Now()
-		if _, err := h.pageService.UpdatePage(r.Context(), page.ID, page.Title, page.Content); err != nil {
+		if _, err := h.pageService.UpdatePage(r.Context(), page.ID, newTitle, page.Content); err != nil {
 			return &middleware.AppError{Error: err, Message: "Failed to update page", Code: http.StatusInternalServerError}
 		}
 	}
@@ -126,6 +130,6 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 		return nil
 	}
 
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+	http.Redirect(w, r, "/view/"+newTitle, http.StatusFound)
 	return nil
 }

@@ -33,10 +33,22 @@ func NewEnforcer(driverName, dsn, modelPath string) (*casbin.Enforcer, error) {
 		return nil, err
 	}
 
-	// Here you could add default policies if needed, for example:
-	// if hasPolicy := enforcer.HasPolicy("admin", "pages", "write"); !hasPolicy {
-	//     enforcer.AddPolicy("admin", "pages", "write")
-	// }
+	// Add default policies if they don't exist
+	if hasPolicy, _ := enforcer.HasPolicy("editor", "/view/*", "GET"); !hasPolicy {
+		enforcer.AddPolicy("editor", "/view/*", "GET")
+	}
+	if hasPolicy, _ := enforcer.HasPolicy("editor", "/edit/*", "GET"); !hasPolicy {
+		enforcer.AddPolicy("editor", "/edit/*", "GET")
+	}
+	if hasPolicy, _ := enforcer.HasPolicy("editor", "/save/*", "POST"); !hasPolicy {
+		enforcer.AddPolicy("editor", "/save/*", "POST")
+	}
+	if hasPolicy, _ := enforcer.HasPolicy("editor", "/list", "GET"); !hasPolicy {
+		enforcer.AddPolicy("editor", "/list", "GET")
+	}
+	if hasPolicy, _ := enforcer.HasPolicy("anonymous", "/view/Home", "GET"); !hasPolicy {
+		enforcer.AddPolicy("anonymous", "/view/Home", "GET")
+	}
 
 	return enforcer, nil
 }
