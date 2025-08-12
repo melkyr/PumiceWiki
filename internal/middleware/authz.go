@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"go-wiki-app/internal/session"
+	"log"
 	"net/http"
 
 	"github.com/casbin/casbin/v2"
@@ -23,6 +24,7 @@ func Authorizer(e *casbin.Enforcer, sm session.Manager) func(http.Handler) http.
 				return
 			}
 			displayName := sm.GetString(r.Context(), "user_display_name")
+			log.Printf("DEBUG: Authorizer middleware. Subject: '%s', displayName from session: '%s'", subject, displayName)
 
 			userInfo := &UserInfo{Subject: subject, Roles: roles, DisplayName: displayName}
 			ctx := SetUserInfo(r.Context(), userInfo)
