@@ -26,6 +26,7 @@ func NewRouter(
 	r.Use(chiMiddleware.RequestID)
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Compress(5))
 	r.Use(sessionManager.LoadAndSave)
 	r.Use(middleware.SettingsMiddleware)
 

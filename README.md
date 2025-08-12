@@ -11,6 +11,7 @@ A lightweight, fast, and secure wiki application built with Go, HTMX, and Casdoo
 - **Containerized:** Fully containerized with Docker and Docker Compose for easy deployment.
 - **Structured Logging:** Configurable, structured logging with `zerolog`.
 - **TLS Support:** Optional TLS/HTTPS support.
+- **Performance Optimized:** Uses `chi/middleware.Compress` to serve compressed responses (gzip and brotli), reducing bandwidth usage and improving load times on slower connections.
 
 ### Basic HTML Mode for Legacy Browsers
 

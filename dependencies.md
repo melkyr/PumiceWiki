@@ -4,7 +4,7 @@ This file documents the external Go modules that this project directly depends o
 
 ## Core Application
 
--   **`github.com/go-chi/chi/v5`**: A lightweight and idiomatic HTTP router for Go. Used to route incoming web requests to the correct handlers.
+-   **`github.com/go-chi/chi/v5`**: A lightweight and idiomatic HTTP router for Go. Used to route incoming web requests to the correct handlers. We also use its middleware for logging, request IDs, and response compression.
 -   **`github.com/jmoiron/sqlx`**: A set of extensions on the standard `database/sql` package. It simplifies database operations, especially scanning rows into structs.
 -   **`github.com/mattn/go-sqlite3`**: The database driver for SQLite, allowing the application to connect to and interact with the `wiki.db` file.
 -   **`github.com/spf13/viper`**: A complete configuration solution for Go applications. Used to manage configuration from files (`config.yml`) and environment variables.
