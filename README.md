@@ -12,6 +12,28 @@ A lightweight, fast, and secure wiki application built with Go, HTMX, and Casdoo
 - **Structured Logging:** Configurable, structured logging with `zerolog`.
 - **TLS Support:** Optional TLS/HTTPS support.
 
+### Basic HTML Mode for Legacy Browsers
+
+This wiki is designed to be accessible to a wide range of web browsers, including older or text-based browsers that do not support JavaScript. To achieve this, the application can serve a "Basic HTML Mode."
+
+In this mode:
+- All HTMX and JavaScript-based enhancements are disabled.
+- The rich markdown editor is replaced with a simple textarea.
+- The application serves plain, semantic HTML, ensuring all content is accessible.
+
+This mode is activated in two ways:
+
+1.  **Automatic Detection**: The application automatically enables Basic HTML Mode for known legacy browsers by checking the `User-Agent` string. The current list of detected agents includes:
+    -   `Dillo`
+    -   `Lynx`
+    -   `w3m`
+    -   `NetSurf`
+    -   `AmigaVoyager`
+    -   `Amiga-AWeb`
+    -   `IBrowse`
+
+2.  **Manual Override**: You can force any browser into Basic HTML Mode by adding the `?basic=true` query parameter to the URL. For example: `http://localhost:8080/view/Home?basic=true`.
+
 ### Note on Home Page Content
 
 The default content for the "Home" page, which is displayed when the page does not yet exist in the database, is hardcoded within the application. It is not sourced from an external template file. If you need to change this default message ("Welcome! This page is empty."), you can find it in `internal/handler/page_handler.go` inside the `viewHandler` function.
@@ -49,7 +71,7 @@ The following diagram illustrates the request flow through the application:
                                                      V
                                    +-----------------+-----------------------------+
                                    | Page Repository         | Casbin Enforcer   |
-                                   | - Queries SQLite DB     | - Queries Policies|
+                                   | - Queries MariaDB       | - Queries Policies|
                                    +---------------------------------------------+
 
 ```
@@ -118,7 +140,7 @@ All configuration can be set via environment variables, which override the defau
 | `WIKI_SERVER_TLS_ENABLED`     | Set to `true` to enable HTTPS.                        | `false`                  |
 | `WIKI_SERVER_TLS_CERTFILE`    | Path to the TLS certificate file.                     | `cert.pem`               |
 | `WIKI_SERVER_TLS_KEYFILE`     | Path to the TLS key file.                             | `key.pem`                |
-| `WIKI_DB_DSN`                 | Data Source Name for the database.                    | `wiki.db`                |
+| `WIKI_DB_DSN`                 | Data Source Name for the MariaDB database.            | `wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true` |
 | `WIKI_OIDC_ISSUER_URL`        | The issuer URL of your OIDC provider.                 | `http://casdoor.local:8000` |
 | `WIKI_OIDC_CLIENT_ID`         | The client ID for the OIDC application.               | `YOUR_CLIENT_ID`         |
 | `WIKI_OIDC_CLIENT_SECRET`     | The client secret for the OIDC application.           | `YOUR_CLIENT_SECRET`     |
