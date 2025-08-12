@@ -24,6 +24,7 @@ This file documents the external Go modules that this project directly depends o
 ## Security & Data Handling
 
 -   **`github.com/microcosm-cc/bluemonday`**: A fast and powerful HTML sanitizer. Used to clean user-provided content to prevent Cross-Site Scripting (XSS) attacks.
+-   **`github.com/yuin/goldmark`**: A fast and extensible Markdown parser. Used to convert user-written Markdown into HTML for rendering in the browser.
 
 ## Database Migrations
 

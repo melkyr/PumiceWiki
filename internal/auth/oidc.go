@@ -33,7 +33,11 @@ func NewAuthenticator(cfg *config.OIDCConfig) (*Authenticator, error) {
 		ClientSecret: cfg.ClientSecret,
 		RedirectURL:  cfg.RedirectURL,
 		Endpoint:     provider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		// Scopes define what information the application is requesting from the OIDC provider.
+		// - oidc.ScopeOpenID is mandatory for OIDC.
+		// - "profile" typically includes name, display name, etc.
+		// - "email" requests the user's email address.
+		Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
 	return &Authenticator{

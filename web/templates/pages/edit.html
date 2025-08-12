@@ -12,6 +12,11 @@
               hx-swap="outerHTML"
               {{end}}>
             <div>
+                <label for="title">Title:</label><br>
+                <input type="text" id="title" name="title" value="{{.Page.Title}}" size="50"><br><br>
+            </div>
+            <div>
+                <label for="editor">Content:</label><br>
                 <textarea id="editor" name="content" rows="20" cols="80">{{.Page.Content}}</textarea>
             </div>
             <div>

@@ -1,0 +1,12 @@
+{{template "base" .}}
+
+{{define "title"}}Wiki Pages{{end}}
+
+{{define "content"}}
+    <h2>Wiki Pages</h2>
+    <ul>
+        {{range .Pages}}
+            <li><a href="/view/{{.Title}}">{{.Title}}</a></li>
+        {{end}}
+    </ul>
+{{end}}
