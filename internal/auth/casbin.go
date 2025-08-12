@@ -26,8 +26,8 @@ func NewEnforcer(driverName, dsn, modelPath string) (*casbin.Enforcer, error) {
 	}
 	adapter := sqlxadapter.NewAdapterFromOptions(opts)
 
-	// Create a new enforcer with the model file and the database adapter.
-	enforcer, err := casbin.NewEnforcer(modelPath, adapter)
+	// Create a new cached enforcer with the model file and the database adapter.
+	enforcer, err := casbin.NewCachedEnforcer(modelPath, adapter)
 	if err != nil {
 		return nil, err
 	}

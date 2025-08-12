@@ -2,7 +2,9 @@ package data
 
 import (
 	"fmt"
+	"go-wiki-app/internal/config"
 	"path/filepath"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"
@@ -12,12 +14,19 @@ import (
 )
 
 // NewDB creates a new database connection pool.
-func NewDB(dsn string) (*sqlx.DB, error) {
+func NewDB(cfg config.DBConfig) (*sqlx.DB, error) {
 	// sqlx.Connect opens a connection and pings it to verify it's alive.
-	db, err := sqlx.Connect("mysql", dsn)
+	db, err := sqlx.Connect("mysql", cfg.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+
+	// Set connection pool settings to prevent overwhelming the database.
+	db.SetMaxOpenConns(cfg.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.MaxIdleConns)
+	db.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetimeMins) * time.Minute)
+	db.SetConnMaxIdleTime(time.Duration(cfg.ConnMaxIdleTimeMins) * time.Minute)
+
 	return db, nil
 }
 

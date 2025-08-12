@@ -49,7 +49,7 @@ func main() {
 	log.Info("Migrations applied successfully.")
 
 	log.Info("Connecting to the database...")
-	db, err := data.NewDB(cfg.DB.DSN)
+	db, err := data.NewDB(cfg.DB)
 	if err != nil {
 		log.Fatal(err, "Failed to connect to database")
 	}

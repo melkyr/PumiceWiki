@@ -30,7 +30,11 @@ type TLSConfig struct {
 
 // DBConfig holds database-specific configuration.
 type DBConfig struct {
-	DSN string `mapstructure:"dsn"`
+	DSN                 string `mapstructure:"dsn"`
+	MaxOpenConns        int    `mapstructure:"max_open_conns"`
+	MaxIdleConns        int    `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeMins int    `mapstructure:"conn_max_lifetime_mins"`
+	ConnMaxIdleTimeMins int    `mapstructure:"conn_max_idle_time_mins"`
 }
 
 // OIDCConfig holds OIDC client configuration.
@@ -58,6 +62,10 @@ func LoadConfig() (*Config, error) {
 	// Set default values
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("db.dsn", "wikiuser:wikipass@tcp(127.0.0.1:3306)/go_wiki_app?parseTime=true")
+	viper.SetDefault("db.max_open_conns", 25)
+	viper.SetDefault("db.max_idle_conns", 25)
+	viper.SetDefault("db.conn_max_lifetime_mins", 5)
+	viper.SetDefault("db.conn_max_idle_time_mins", 2)
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "console")
 	viper.SetDefault("session.lifetime_hours", 24)
