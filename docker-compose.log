@@ -1,1 +1,74 @@
--bash: docker-compose: command not found
+time="2025-08-12T17:49:54Z" level=warning msg="/app/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+#1 [internal] load local bake definitions
+#1 reading from stdin 441B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile:
+#2 transferring dockerfile: 1.56kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for gcr.io/distroless/static-debian11:latest
+#3 DONE 0.0s
+
+#4 [internal] load metadata for docker.io/library/golang:1.24.3-alpine
+#4 DONE 0.2s
+
+#5 [stage-1 1/6] FROM gcr.io/distroless/static-debian11:latest@sha256:1dbe426d60caed5d19597532a2d74c8056cd7b1674042b88f7328690b5ead8ed
+#5 resolve gcr.io/distroless/static-debian11:latest@sha256:1dbe426d60caed5d19597532a2d74c8056cd7b1674042b88f7328690b5ead8ed 0.0s done
+#5 sha256:1dbe426d60caed5d19597532a2d74c8056cd7b1674042b88f7328690b5ead8ed 1.51kB / 1.51kB done
+#5 sha256:e6d589f36c6c7d9a14df69da026b446ac03c0d2027bfca82981b6a1256c2019c 1.95kB / 1.95kB done
+#5 sha256:9de0a16f3958b01fee65b2775d8616d2762f023a9ec6badb35cc853cc0eada1e 1.49kB / 1.49kB done
+#5 extracting sha256:1c56d6035a42c0a75d79cc88acf6c9d4104343639f19b8262b520c449731445d done
+#5 extracting sha256:e33bce57de289fffd2380f73997dfb7e1ec193877904bed99f28c715d071fdc4 done
+#5 sha256:1c56d6035a42c0a75d79cc88acf6c9d4104343639f19b8262b520c449731445d 104.12kB / 104.12kB 0.1s done
+#5 sha256:e33bce57de289fffd2380f73997dfb7e1ec193877904bed99f28c715d071fdc4 21.19kB / 21.19kB 0.1s done
+#5 sha256:473d8557b1b27974f7dc7c4b4e1a209df0e27e8cae1e3e33b7bb45c969b6fc7e 755.28kB / 755.28kB 0.1s done
+#5 sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 188B / 188B 0.2s done
+#5 sha256:33e068de264953dfdc9f9ada207e76b61159721fd64a4820b320d05133a55fb8 122B / 122B 0.2s done
+#5 sha256:27be814a09ebd97fac6fb7b82d19f117185e90601009df3fbab6f442f85cd6b3 93B / 93B 0.3s done
+#5 sha256:b6824ed73363f94b3b2b44084c51c31bc32af77a96861d49e16f91e3ab6bed71 67B / 67B 0.2s done
+#5 sha256:5664b15f108bf9436ce3312090a767300800edbbfd4511aa1a6d64357024d5dd 168B / 168B 0.3s done
+#5 sha256:4aa0ea1413d37a58615488592a0b827ea4b2e48fa5a77cf707d0e35f025e613f 385B / 385B 0.3s done
+#5 sha256:9112d77ee5b16873acaa186b816c3c61f5f8eba40730e729e9614a27f40211e0 122.56kB / 122.56kB 0.4s done
+#5 sha256:9ef7d74bdfdf3c517b28bd694a9159e94e5f53ff1ca87b39f8ca1ac0be2ed317 320B / 320B 0.4s done
+#5 extracting sha256:473d8557b1b27974f7dc7c4b4e1a209df0e27e8cae1e3e33b7bb45c969b6fc7e 0.8s done
+#5 extracting sha256:b6824ed73363f94b3b2b44084c51c31bc32af77a96861d49e16f91e3ab6bed71 done
+#5 extracting sha256:7c12895b777bcaa8ccae0605b4de635b68fc32d60fa08f421dc3818bf55ee212 done
+#5 extracting sha256:33e068de264953dfdc9f9ada207e76b61159721fd64a4820b320d05133a55fb8 done
+#5 extracting sha256:5664b15f108bf9436ce3312090a767300800edbbfd4511aa1a6d64357024d5dd done
+#5 extracting sha256:27be814a09ebd97fac6fb7b82d19f117185e90601009df3fbab6f442f85cd6b3 done
+#5 extracting sha256:4aa0ea1413d37a58615488592a0b827ea4b2e48fa5a77cf707d0e35f025e613f done
+#5 extracting sha256:9ef7d74bdfdf3c517b28bd694a9159e94e5f53ff1ca87b39f8ca1ac0be2ed317 done
+#5 extracting sha256:9112d77ee5b16873acaa186b816c3c61f5f8eba40730e729e9614a27f40211e0 0.0s done
+#5 DONE 4.0s
+
+#6 [stage-1 2/6] WORKDIR /app
+#6 DONE 0.3s
+
+#7 [builder 1/6] FROM docker.io/library/golang:1.24.3-alpine@sha256:b4f875e650466fa0fe62c6fd3f02517a392123eea85f1d7e69d85f780e4db1c1
+#7 resolve docker.io/library/golang:1.24.3-alpine@sha256:b4f875e650466fa0fe62c6fd3f02517a392123eea85f1d7e69d85f780e4db1c1 0.0s done
+#7 sha256:ee6ed942a4adbd5fff6accec75d55baab0125eb21f31c26144ba0e8d3da49914 2.08kB / 2.08kB done
+#7 sha256:b4f875e650466fa0fe62c6fd3f02517a392123eea85f1d7e69d85f780e4db1c1 10.29kB / 10.29kB done
+#7 sha256:26e5827d0bcee61db5b976014a99018c1ff8f8e6248de8f3ee85bf12229c4b34 1.92kB / 1.92kB done
+#7 sha256:965f7aff83c4fc694f4ad4c3166a22df4df5eb2caf149cfdbe8a2bb6af7ebdb5 294.90kB / 294.90kB 0.7s done
+#7 sha256:fe07684b16b82247c3539ed86a65ff37a76138ec25d380bd80c869a1a4c73236 3.80MB / 3.80MB 0.8s done
+#7 extracting sha256:fe07684b16b82247c3539ed86a65ff37a76138ec25d380bd80c869a1a4c73236 0.3s done
+#7 sha256:87ee4818046b39b38d9211e2793dfd046836a88da1dcbf0df5855493ba4c368a 127B / 127B 1.3s done
+#7 sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 32B / 32B 1.4s done
+#7 extracting sha256:965f7aff83c4fc694f4ad4c3166a22df4df5eb2caf149cfdbe8a2bb6af7ebdb5 0.2s done
+#7 sha256:92b00dc8dfbaa6cd7e39d09d4f1c726259b4d9a29c697192955da032f472d642 78.98MB / 78.98MB 4.3s done
+#7 extracting sha256:92b00dc8dfbaa6cd7e39d09d4f1c726259b4d9a29c697192955da032f472d642 10.7s done
+#7 extracting sha256:87ee4818046b39b38d9211e2793dfd046836a88da1dcbf0df5855493ba4c368a done
+#7 extracting sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1 done
+#7 DONE 27.9s
+
+#8 [internal] load .dockerignore
+#8 transferring context: 2B done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 266.96kB 0.0s done
+#9 DONE 0.3s
+
+#10 [builder 2/6] WORKDIR /app
