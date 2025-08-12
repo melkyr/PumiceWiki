@@ -6,7 +6,6 @@ import (
 	"go-wiki-app/internal/auth"
 	"go-wiki-app/internal/session"
 	"io"
-	"log"
 	"net/http"
 
 	"github.com/casbin/casbin/v2"
@@ -88,7 +87,6 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	} else {
 		displayName = claims.Name
 	}
-	log.Printf("DEBUG: OIDC claims parsed. displayName: '%s', name: '%s'. Using: '%s'", claims.DisplayName, claims.Name, displayName)
 
 	// First, remove any existing roles for this user to handle role changes.
 	h.enforcer.DeleteRolesForUser(idToken.Subject)
