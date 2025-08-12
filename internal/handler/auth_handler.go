@@ -39,8 +39,10 @@ func (h *AuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, h.auth.AuthCodeURL(state), http.StatusFound)
 }
 
-// handleCallback is the redirect URL for the OIDC provider.
+// handleCallback is the OIDC callback endpoint. It handles the authorization code,
+// exchanges it for tokens, verifies the ID token, and establishes a user session.
 func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
+	// 1. Verify the state parameter to prevent CSRF attacks.
 	state := h.session.GetString(r.Context(), "state")
 	if state == "" || r.URL.Query().Get("state") != state {
 		http.Error(w, "state did not match", http.StatusBadRequest)
@@ -48,26 +50,27 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	h.session.Remove(r.Context(), "state")
 
+	// 2. Exchange the authorization code for an OAuth2 token.
 	oauth2Token, err := h.auth.Exchange(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
 		http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// 3. Extract and verify the ID Token.
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
 		http.Error(w, "No id_token field in oauth2 token", http.StatusInternalServerError)
 		return
 	}
-
 	idToken, err := h.auth.IDTokenVerifier.Verify(r.Context(), rawIDToken)
 	if err != nil {
 		http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Define a struct to hold the custom claims, including roles.
-	// We expect the OIDC provider (Casdoor) to be configured to send roles in this claim.
+	// 4. Parse custom claims from the ID Token.
+	// We expect the OIDC provider (e.g., Casdoor) to be configured to send these claims.
 	var claims struct {
 		DisplayName string `json:"displayName"`
 		Name        string `json:"name"`
@@ -80,22 +83,23 @@ func (h *AuthHandler) handleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine the best display name to use
+	// 5. Synchronize user roles with Casbin.
+	// This ensures that the user's permissions are always up-to-date with the OIDC provider.
+	// First, remove any existing roles for this user to handle role changes.
+	h.enforcer.DeleteRolesForUser(idToken.Subject)
+	// Then, grant the new roles from the token.
+	for _, role := range claims.Roles {
+		h.enforcer.AddRoleForUser(idToken.Subject, role.Name)
+	}
+
+	// 6. Establish the user's session.
+	// Determine the best display name to use, falling back from displayName to name.
 	var displayName string
 	if claims.DisplayName != "" {
 		displayName = claims.DisplayName
 	} else {
 		displayName = claims.Name
 	}
-
-	// First, remove any existing roles for this user to handle role changes.
-	h.enforcer.DeleteRolesForUser(idToken.Subject)
-
-	// Grant the new roles from the token.
-	for _, role := range claims.Roles {
-		h.enforcer.AddRoleForUser(idToken.Subject, role.Name)
-	}
-
 	h.session.Put(r.Context(), "raw_id_token", rawIDToken)
 	h.session.Put(r.Context(), "user_subject", idToken.Subject)
 	h.session.Put(r.Context(), "user_display_name", displayName)

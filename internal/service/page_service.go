@@ -36,18 +36,18 @@ type PageService struct {
 	markdown  goldmark.Markdown
 }
 
-// NewPageService creates a new PageService with the given repository.
+// NewPageService creates a new PageService with its dependencies.
 func NewPageService(repo PageRepository) *PageService {
-	// Create a new bluemonday policy for user-generated content.
-	// UGCPolicy is a good starting point as it allows basic formatting
-	// like links, lists, bold, etc., while stripping out dangerous HTML.
+	// sanitizer is the policy for cleaning user-provided HTML to prevent XSS.
+	// We start with the UGCPolicy which allows common formatting and links.
 	sanitizer := bluemonday.UGCPolicy()
+	// We explicitly allow images to be rendered.
 	sanitizer.AllowImages()
 
-	// Create a new goldmark markdown converter
+	// markdown is the engine for converting Markdown text to HTML.
 	markdown := goldmark.New(
 		goldmark.WithExtensions(
-		// Add extensions here if needed, e.g., tables, strikethrough
+		// Extensions like tables, strikethrough, etc., could be added here.
 		),
 	)
 
@@ -58,15 +58,16 @@ func NewPageService(repo PageRepository) *PageService {
 	}
 }
 
-// CreatePage handles the creation of a new wiki page.
-// It sanitizes the content before passing it to the repository.
+// CreatePage handles the business logic for creating a new wiki page.
+// It sanitizes the user-provided Markdown content before saving it to the database.
 func (s *PageService) CreatePage(ctx context.Context, title, content, authorID string) (*data.Page, error) {
-	// Sanitize the user-provided content to prevent XSS attacks.
+	// Note: We are sanitizing the raw Markdown here. This is a first line of
+	// defense, but the primary sanitization happens after it's converted to HTML.
 	sanitizedContent := s.sanitizer.Sanitize(content)
 
 	page := &data.Page{
 		Title:    title,
-		Content:  sanitizedContent,
+		Content:  sanitizedContent, // The raw, sanitized Markdown is stored.
 		AuthorID: authorID,
 	}
 
@@ -76,20 +77,24 @@ func (s *PageService) CreatePage(ctx context.Context, title, content, authorID s
 	return page, nil
 }
 
-// ViewPage retrieves a single page by its title, converts its content to HTML, and sanitizes it.
+// ViewPage retrieves a single page by its title. It then converts the page's
+// raw Markdown content into sanitized HTML, which is placed in the `HTMLContent`
+// field for safe rendering in templates.
 func (s *PageService) ViewPage(ctx context.Context, title string) (*data.Page, error) {
 	page, err := s.repo.GetPageByTitle(ctx, title)
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert markdown content to HTML
+	// 1. Convert the raw Markdown content from the DB into HTML.
 	var buf bytes.Buffer
 	if err := s.markdown.Convert([]byte(page.Content), &buf); err != nil {
+		// If conversion fails, return the error but don't halt the application.
 		return nil, err
 	}
 
-	// Sanitize the HTML content
+	// 2. Sanitize the generated HTML to prevent XSS attacks. This is the most
+	//    important sanitization step, as it operates on the final HTML output.
 	sanitizedHTML := s.sanitizer.SanitizeBytes(buf.Bytes())
 	page.HTMLContent = template.HTML(sanitizedHTML)
 

@@ -16,6 +16,7 @@ import (
 func NewRouter(
 	pageHandler *PageHandler,
 	authHandler *AuthHandler,
+	seoHandler *SeoHandler,
 	authzMiddleware func(http.Handler) http.Handler,
 	errorMiddleware func(middleware.AppHandler) http.Handler,
 	sessionManager session.Manager,
@@ -31,6 +32,10 @@ func NewRouter(
 	staticFS, _ := fs.Sub(web.StaticFS, "static")
 	fileServer := http.FileServer(http.FS(staticFS))
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
+
+	// SEO routes
+	r.Get("/robots.txt", seoHandler.robotsHandler)
+	r.Get("/sitemap.xml", seoHandler.sitemapHandler)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/view/Home", http.StatusFound)
