@@ -88,7 +88,7 @@ func main() {
 
 	// --- Cache Initialization ---
 	log.Info("Initializing SQLite cache...")
-	cache, err := cache.New(cfg.Cache.FilePath)
+	cache, err := cache.New(cfg.Cache)
 	if err != nil {
 		log.Fatal(err, "Failed to initialize cache")
 	}

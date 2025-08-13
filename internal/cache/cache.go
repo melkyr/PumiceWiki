@@ -3,6 +3,7 @@ package cache
 import (
 	"database/sql"
 	"fmt"
+	"go-wiki-app/internal/config"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -17,8 +18,8 @@ type Cache struct {
 // New creates a new Cache instance.
 // It opens the SQLite database at the given file path and ensures the
 // cache table is created.
-func New(filePath string) (*Cache, error) {
-	db, err := sqlx.Connect("sqlite", filePath)
+func New(cfg config.CacheConfig) (*Cache, error) {
+	db, err := sqlx.Connect("sqlite", cfg.FilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to sqlite cache: %w", err)
 	}
@@ -29,13 +30,11 @@ func New(filePath string) (*Cache, error) {
 		return nil, fmt.Errorf("failed to set WAL mode on sqlite cache: %w", err)
 	}
 
-	// Apply performance tuning PRAGMAs as suggested by the user.
-	// These are safe for a cache where durability is less critical than speed.
+	// Apply performance tuning PRAGMAs from config.
 	// We ignore errors as some PRAGMAs might not be supported on all systems.
-	_, _ = db.Exec("PRAGMA synchronous = NORMAL;")
-	_, _ = db.Exec("PRAGMA temp_store = MEMORY;")
-	_, _ = db.Exec("PRAGMA cache_size = -20000;")   // ~20MB
-	_, _ = db.Exec("PRAGMA mmap_size = 268435456;") // 256MB
+	for _, pragma := range cfg.Pragmas {
+		_, _ = db.Exec(pragma)
+	}
 
 	schema := `
 	CREATE TABLE IF NOT EXISTS cache (

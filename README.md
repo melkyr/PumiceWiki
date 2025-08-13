@@ -169,12 +169,39 @@ All configuration can be set via environment variables, which override the defau
 | `WIKI_SERVER_TLS_CERTFILE`    | Path to the TLS certificate file.                     | `cert.pem`               |
 | `WIKI_SERVER_TLS_KEYFILE`     | Path to the TLS key file.                             | `key.pem`                |
 | `WIKI_DB_DSN`                 | Data Source Name for the MariaDB database.            | `wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true` |
+| `WIKI_DB_MAX_OPEN_CONNS`      | Max open DB connections.                              | `25`                     |
+| `WIKI_DB_MAX_IDLE_CONNS`      | Max idle DB connections.                              | `25`                     |
+| `WIKI_DB_CONN_MAX_LIFETIME_MINS` | Max connection lifetime in minutes.                | `5`                      |
+| `WIKI_DB_CONN_MAX_IDLE_TIME_MINS` | Max connection idle time in minutes.               | `2`                      |
+| `WIKI_CACHE_FILE_PATH`        | Path to the SQLite cache database file.               | `cache.db`               |
+| `WIKI_CACHE_DEFAULT_TTL_SECONDS` | Default TTL for cache items in seconds.             | `300`                    |
 | `WIKI_OIDC_ISSUER_URL`        | The issuer URL of your OIDC provider.                 | `http://casdoor.local:8000` |
 | `WIKI_OIDC_CLIENT_ID`         | The client ID for the OIDC application.               | `YOUR_CLIENT_ID`         |
 | `WIKI_OIDC_CLIENT_SECRET`     | The client secret for the OIDC application.           | `YOUR_CLIENT_SECRET`     |
 | `WIKI_OIDC_REDIRECT_URL`      | The callback URL for OIDC.                            | `http://localhost:8080/auth/callback` |
 | `WIKI_LOG_LEVEL`              | The logging level (`debug`, `info`, `warn`, `error`). | `info`                   |
 | `WIKI_LOG_FORMAT`             | The log format (`console` or `json`).                 | `console`                |
+
+## Performance Tuning
+
+The application's performance can be tuned via the `config.yml` file or corresponding environment variables.
+
+### Database Connection Pool
+
+The `db` section in `config.yml` controls the connection pool to the main MariaDB database.
+
+-   `max_open_conns`: The maximum number of open connections to the database. Default: `25`.
+-   `max_idle_conns`: The maximum number of connections in the idle connection pool. Default: `25`.
+-   `conn_max_lifetime_mins`: The maximum amount of time a connection may be reused. Default: `5` minutes.
+-   `conn_max_idle_time_mins`: The maximum amount of time a connection may be idle. Default: `2` minutes.
+
+### SQLite Cache
+
+The `cache` section controls the behavior of the SQLite caching layer.
+
+-   `file_path`: The path to the SQLite database file. Default: `cache.db`.
+-   `default_ttl_seconds`: The default time-to-live for cached items. Default: `300` seconds (5 minutes).
+-   `pragmas`: A list of SQLite PRAGMA statements to execute on connection. These can be used to tune SQLite's performance. The defaults are optimized for speed over durability, which is appropriate for a cache.
 
 ## Default Roles & Permissions
 
