@@ -6,13 +6,13 @@
     <nav>
         <h3>Categories</h3>
         <ul>
-            {{range .CategoryTree}}
+            {{range $node := .CategoryTree}}
             <li>
-                <a href="/category/{{.Parent.Name}}">{{.Parent.Name}}</a>
-                {{if .Children}}
+                <a href="/category/{{$node.Parent.Name}}">{{$node.Parent.Name}}</a>
+                {{if $node.Children}}
                 <ul>
-                    {{range .Children}}
-                    <li><a href="/category/{{.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
+                    {{range $node.Children}}
+                    <li><a href="/category/{{$node.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
                     {{end}}
                 </ul>
                 {{end}}
