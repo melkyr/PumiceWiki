@@ -13,6 +13,26 @@ A lightweight, fast, and secure wiki application built with Go, HTMX, and Casdoo
 - **TLS Support:** Optional TLS/HTTPS support.
 - **Performance Optimized:** Uses `chi/middleware.Compress` to serve compressed responses (gzip and brotli), reducing bandwidth usage and improving load times on slower connections.
 
+## Performance
+
+After implementing several optimizations (database connection pooling, cached authorization, and a SQLite-based page cache), the application achieves high throughput while remaining stable under load.
+
+The following results were achieved using `k6` on a Ryzen 7700X with 32GB of RAM, running the application via Podman. The test was configured to repeatedly request a single, cached page.
+
+```
+  █ THRESHOLDS
+
+    http_req_duration..................: ✓ 'p(95)<500' p(95)=2.58ms
+    http_req_failed....................: ✓ 'rate<0.01' rate=0.03%
+
+  █ TOTAL RESULTS
+
+    http_reqs..........................: 225283  1248.631238/s
+    http_req_duration..................: avg=963.91µs min=0s med=530.9µs max=89.67ms p(90)=1.56ms p(95)=2.58ms
+```
+
+These results demonstrate that for cached reads, the application can handle over **1200 requests per second** with a p(95) latency of less than 3ms.
+
 ### Basic HTML Mode for Legacy Browsers
 
 This wiki is designed to be accessible to a wide range of web browsers, including older or text-based browsers that do not support JavaScript. To achieve this, the application can serve a "Basic HTML Mode."
@@ -65,14 +85,21 @@ The following diagram illustrates the request flow through the application:
                                                      V         V
                                    +-----------------+---------+-------------------+
                                    | Page Service            | View Service      |
-                                   | - Calls Repository      | - Executes HTML   |
-                                   |                         |   Templates       |
+                                   | - Calls Cache           | - Executes HTML   |
+                                   | - Calls Repository      |   Templates       |
                                    +-----------------+---------+-------------------+
+                                        |        |
+                               3a. Cache|        | 3b. Repository Call (on miss)
+                                  Check V        V
+                                   +-------+---------+----------------------------+
+                                   | SQLite Cache    | Page Repository            |
+                                   | - Caches Pages  | - Queries MariaDB          |
+                                   +-----------------+----------------------------+
                                                      |
                                                      V
                                    +-----------------+-----------------------------+
-                                   | Page Repository         | Casbin Enforcer   |
-                                   | - Queries MariaDB       | - Queries Policies|
+                                   | Casbin Enforcer (Cached)                      |
+                                   | - Queries Policies from MariaDB               |
                                    +---------------------------------------------+
 
 ```
@@ -142,12 +169,39 @@ All configuration can be set via environment variables, which override the defau
 | `WIKI_SERVER_TLS_CERTFILE`    | Path to the TLS certificate file.                     | `cert.pem`               |
 | `WIKI_SERVER_TLS_KEYFILE`     | Path to the TLS key file.                             | `key.pem`                |
 | `WIKI_DB_DSN`                 | Data Source Name for the MariaDB database.            | `wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true` |
+| `WIKI_DB_MAX_OPEN_CONNS`      | Max open DB connections.                              | `25`                     |
+| `WIKI_DB_MAX_IDLE_CONNS`      | Max idle DB connections.                              | `25`                     |
+| `WIKI_DB_CONN_MAX_LIFETIME_MINS` | Max connection lifetime in minutes.                | `5`                      |
+| `WIKI_DB_CONN_MAX_IDLE_TIME_MINS` | Max connection idle time in minutes.               | `2`                      |
+| `WIKI_CACHE_FILE_PATH`        | Path to the SQLite cache database file.               | `cache.db`               |
+| `WIKI_CACHE_DEFAULT_TTL_SECONDS` | Default TTL for cache items in seconds.             | `300`                    |
 | `WIKI_OIDC_ISSUER_URL`        | The issuer URL of your OIDC provider.                 | `http://casdoor.local:8000` |
 | `WIKI_OIDC_CLIENT_ID`         | The client ID for the OIDC application.               | `YOUR_CLIENT_ID`         |
 | `WIKI_OIDC_CLIENT_SECRET`     | The client secret for the OIDC application.           | `YOUR_CLIENT_SECRET`     |
 | `WIKI_OIDC_REDIRECT_URL`      | The callback URL for OIDC.                            | `http://localhost:8080/auth/callback` |
 | `WIKI_LOG_LEVEL`              | The logging level (`debug`, `info`, `warn`, `error`). | `info`                   |
 | `WIKI_LOG_FORMAT`             | The log format (`console` or `json`).                 | `console`                |
+
+## Performance Tuning
+
+The application's performance can be tuned via the `config.yml` file or corresponding environment variables.
+
+### Database Connection Pool
+
+The `db` section in `config.yml` controls the connection pool to the main MariaDB database.
+
+-   `max_open_conns`: The maximum number of open connections to the database. Default: `25`.
+-   `max_idle_conns`: The maximum number of connections in the idle connection pool. Default: `25`.
+-   `conn_max_lifetime_mins`: The maximum amount of time a connection may be reused. Default: `5` minutes.
+-   `conn_max_idle_time_mins`: The maximum amount of time a connection may be idle. Default: `2` minutes.
+
+### SQLite Cache
+
+The `cache` section controls the behavior of the SQLite caching layer.
+
+-   `file_path`: The path to the SQLite database file. Default: `cache.db`.
+-   `default_ttl_seconds`: The default time-to-live for cached items. Default: `300` seconds (5 minutes).
+-   `pragmas`: A list of SQLite PRAGMA statements to execute on connection. These can be used to tune SQLite's performance. The defaults are optimized for speed over durability, which is appropriate for a cache.
 
 ## Default Roles & Permissions
 

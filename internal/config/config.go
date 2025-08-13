@@ -60,8 +60,9 @@ type SessionConfig struct {
 
 // CacheConfig holds cache-specific configuration.
 type CacheConfig struct {
-	FilePath          string `mapstructure:"file_path"`
-	DefaultTTLSeconds int    `mapstructure:"default_ttl_seconds"`
+	FilePath          string   `mapstructure:"file_path"`
+	DefaultTTLSeconds int      `mapstructure:"default_ttl_seconds"`
+	Pragmas           []string `mapstructure:"pragmas"`
 }
 
 // LoadConfig reads configuration from file and environment variables.
@@ -79,6 +80,12 @@ func LoadConfig() (*Config, error) {
 	// No default for secret key, it must be provided.
 	viper.SetDefault("cache.file_path", "cache.db")
 	viper.SetDefault("cache.default_ttl_seconds", 300) // 5 minutes
+	viper.SetDefault("cache.pragmas", []string{
+		"PRAGMA synchronous = NORMAL;",
+		"PRAGMA temp_store = MEMORY;",
+		"PRAGMA cache_size = -20000;",   // ~20MB
+		"PRAGMA mmap_size = 268435456;", // 256MB
+	})
 
 
 	// Set up viper to read from config file

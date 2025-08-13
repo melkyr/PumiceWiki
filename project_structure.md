@@ -6,6 +6,7 @@ This document outlines the directory structure of the Go Wiki application, expla
     -   `cmd/server/main.go`: The main entry point for the web server. It initializes all dependencies and starts the HTTP server.
 -   `internal/`: Contains the core application logic, structured by domain.
     -   `internal/auth/`: Handles authentication (OIDC) and authorization (Casbin) logic.
+    -   `internal/cache/`: Implements a persistent, SQLite-based caching layer to reduce database load.
     -   `internal/config/`: Manages application configuration, loading from files and environment variables.
     -   `internal/data/`: Responsible for database interactions, including models (`models.go`) and the repository layer (`page_repository.go`).
     -   `internal/handler/`: Contains the HTTP handlers that respond to web requests (e.g., `page_handler.go`, `auth_handler.go`). It maps routes to business logic and configures middleware from `chi` and the `internal/middleware` package.
