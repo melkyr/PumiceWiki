@@ -13,6 +13,26 @@ A lightweight, fast, and secure wiki application built with Go, HTMX, and Casdoo
 - **TLS Support:** Optional TLS/HTTPS support.
 - **Performance Optimized:** Uses `chi/middleware.Compress` to serve compressed responses (gzip and brotli), reducing bandwidth usage and improving load times on slower connections.
 
+## Performance
+
+After implementing several optimizations (database connection pooling, cached authorization, and a SQLite-based page cache), the application achieves high throughput while remaining stable under load.
+
+The following results were achieved using `k6` on a Ryzen 7700X with 32GB of RAM, running the application via Podman. The test was configured to repeatedly request a single, cached page.
+
+```
+  █ THRESHOLDS
+
+    http_req_duration..................: ✓ 'p(95)<500' p(95)=2.58ms
+    http_req_failed....................: ✓ 'rate<0.01' rate=0.03%
+
+  █ TOTAL RESULTS
+
+    http_reqs..........................: 225283  1248.631238/s
+    http_req_duration..................: avg=963.91µs min=0s med=530.9µs max=89.67ms p(90)=1.56ms p(95)=2.58ms
+```
+
+These results demonstrate that for cached reads, the application can handle over **1200 requests per second** with a p(95) latency of less than 3ms.
+
 ### Basic HTML Mode for Legacy Browsers
 
 This wiki is designed to be accessible to a wide range of web browsers, including older or text-based browsers that do not support JavaScript. To achieve this, the application can serve a "Basic HTML Mode."
@@ -65,14 +85,21 @@ The following diagram illustrates the request flow through the application:
                                                      V         V
                                    +-----------------+---------+-------------------+
                                    | Page Service            | View Service      |
-                                   | - Calls Repository      | - Executes HTML   |
-                                   |                         |   Templates       |
+                                   | - Calls Cache           | - Executes HTML   |
+                                   | - Calls Repository      |   Templates       |
                                    +-----------------+---------+-------------------+
+                                        |        |
+                               3a. Cache|        | 3b. Repository Call (on miss)
+                                  Check V        V
+                                   +-------+---------+----------------------------+
+                                   | SQLite Cache    | Page Repository            |
+                                   | - Caches Pages  | - Queries MariaDB          |
+                                   +-----------------+----------------------------+
                                                      |
                                                      V
                                    +-----------------+-----------------------------+
-                                   | Page Repository         | Casbin Enforcer   |
-                                   | - Queries MariaDB       | - Queries Policies|
+                                   | Casbin Enforcer (Cached)                      |
+                                   | - Queries Policies from MariaDB               |
                                    +---------------------------------------------+
 
 ```
