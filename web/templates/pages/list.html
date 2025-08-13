@@ -4,9 +4,18 @@
 
 {{define "content"}}
     <h2>Wiki Pages</h2>
-    <ul>
-        {{range .Pages}}
-            <li><a href="/view/{{.Title}}">{{.Title}}</a></li>
-        {{end}}
-    </ul>
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Pages}}
+            <tr>
+                <td><a href="/view/{{.Title}}">{{.Title}}</a></td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
 {{end}}

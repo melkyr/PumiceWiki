@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{block "title" .}}Go Wiki{{end}}</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/pico.min.css">
     {{if not .IsBasicMode}}
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css">
@@ -13,25 +13,28 @@
     {{end}}
 </head>
 <body>
-    <header>
-        <h1><a href="/">Go Wiki</a></h1>
+    <main class="container">
         <nav>
-            {{if .UserInfo}}
-                {{if ne .UserInfo.Subject "anonymous"}}
-                    <span>Welcome, {{.UserInfo.DisplayName}}</span> | <a href="/auth/logout">Logout</a>
+            <ul>
+                <li><strong><a href="/" style="display: flex; align-items: center;"><img src="/static/img/logo.png" alt="Wiki Logo" style="height: 1.5em; margin-right: 0.5em;"> Go Wiki</a></strong></li>
+            </ul>
+            <ul>
+                {{if .UserInfo}}
+                    {{if ne .UserInfo.Subject "anonymous"}}
+                        <li>Welcome, {{.UserInfo.DisplayName}}</li>
+                        <li><a href="/auth/logout">Logout</a></li>
+                    {{else}}
+                        <li><a href="/auth/login">Login</a></li>
+                    {{end}}
                 {{else}}
-                    <a href="/auth/login">Login</a>
+                    <li><a href="/auth/login">Login</a></li>
                 {{end}}
-            {{else}}
-                 <a href="/auth/login">Login</a>
-            {{end}}
+            </ul>
         </nav>
-    </header>
-    <main>
         {{block "content" .}}{{end}}
     </main>
-    <footer>
-        <p>Powered by Go & HTMX</p>
+    <footer class="container">
+        <small>Powered by Go & HTMX</small>
     </footer>
     {{block "scripts" .}}{{end}}
 </body>

@@ -34,3 +34,7 @@ This file documents the external Go modules that this project directly depends o
 ## Logging
 
 -   **`github.com/rs/zerolog`**: A high-performance, structured logging library. It allows for configurable log levels and formats (JSON/console) for better observability.
+
+## Frontend Dependencies
+
+-   **Pico.css**: A lightweight and minimalist CSS framework for semantic HTML. Used for the application's styling. The stylesheet is vendored directly in the `web/static/css` directory.

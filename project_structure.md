@@ -15,7 +15,7 @@ This document outlines the directory structure of the Go Wiki application, expla
     -   `internal/session/`: Manages user sessions.
     -   `internal/view/`: Handles the rendering of HTML templates.
 -   `web/`: Contains all frontend assets.
-    -   `web/static/`: Static files like CSS and images.
+    -   `web/static/`: Static files like CSS (`pico.min.css`) and images (`img/`).
     -   `web/templates/`: HTML templates used for rendering pages.
         -   `layouts/`: Base layout templates.
         -   `pages/`: Templates for specific pages (view, edit, etc.).

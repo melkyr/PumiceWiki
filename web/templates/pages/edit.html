@@ -11,18 +11,14 @@
               hx-target="#edit-content"
               hx-swap="outerHTML"
               {{end}}>
-            <div>
-                <label for="title">Title:</label><br>
-                <input type="text" id="title" name="title" value="{{.Page.Title}}" size="50"><br><br>
-            </div>
-            <div>
-                <label for="editor">Content:</label><br>
-                <textarea id="editor" name="content" rows="20" cols="80">{{.Page.Content}}</textarea>
-            </div>
-            <div>
-                <input type="submit" value="Save Page">
-                <span id="save-status"></span>
-            </div>
+            <label for="title">Title:</label>
+            <input type="text" id="title" name="title" value="{{.Page.Title}}">
+
+            <label for="editor">Content:</label>
+            <textarea id="editor" name="content">{{.Page.Content}}</textarea>
+
+            <button type="submit">Save Page</button>
+            <span id="save-status"></span>
         </form>
     </div>
 {{end}}
