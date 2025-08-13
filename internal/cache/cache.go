@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // Cache provides a SQLite-based caching mechanism.
@@ -18,7 +18,7 @@ type Cache struct {
 // It opens the SQLite database at the given file path and ensures the
 // cache table is created.
 func New(filePath string) (*Cache, error) {
-	db, err := sqlx.Connect("sqlite3", filePath)
+	db, err := sqlx.Connect("sqlite", filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to sqlite cache: %w", err)
 	}
