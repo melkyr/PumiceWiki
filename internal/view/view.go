@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path/filepath"
+	"strings"
 )
 
 // View represents a collection of parsed HTML templates.
@@ -27,22 +28,41 @@ func New(templateFS fs.FS) (*View, error) {
 		return nil, err
 	}
 
-	// Then, get all the page files
-	pages, err := fs.Glob(templateFS, "templates/pages/*.html")
+	// Walk the templates/pages directory to find all page templates recursively
+	var pages []string
+	err = fs.WalkDir(templateFS, "templates/pages", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasSuffix(d.Name(), ".html") {
+			pages = append(pages, path)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to walk page templates: %w", err)
 	}
 
 	// For each page, parse it with the layout files
 	for _, page := range pages {
 		files := append(layouts, page)
-		// The name of the template is the base name of the page file
-		name := filepath.Base(page)
-		// Parse the files
-		ts, err := template.New(name).ParseFS(templateFS, files...)
+
+		// The name of the template is its path relative to "templates/"
+		// e.g., "pages/view.html" or "pages/htmx/category_search_results.html"
+		name, err := filepath.Rel("templates", page)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get relative path for %s: %w", page, err)
+		}
+
+		// The name passed to template.New() becomes the name of the template,
+		// which is how we refer to it when we want to execute a specific one.
+		// We use the base name here so that in the template files, we can just
+		// define the content block, and it will be merged with the base layout.
+		ts, err := template.New(filepath.Base(page)).ParseFS(templateFS, files...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse template %s: %w", name, err)
 		}
+		// But we store it in the map with its full relative path name.
 		v.templates[name] = ts
 	}
 
@@ -60,12 +80,6 @@ func (v *View) Render(w io.Writer, r *http.Request, name string, data map[string
 	if rw, ok := w.(http.ResponseWriter); ok {
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 	}
-
-	// Add the IsBasicMode flag to the data map.
-	if data == nil {
-		data = make(map[string]interface{})
-	}
-	data["IsBasicMode"] = IsBasicMode(r.Context())
 
 	// Execute the template into a buffer first to catch any errors
 	// before writing to the response writer.

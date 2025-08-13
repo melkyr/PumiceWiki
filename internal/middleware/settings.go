@@ -2,10 +2,22 @@ package middleware
 
 import (
 	"context"
-	"go-wiki-app/internal/view"
 	"net/http"
 	"strings"
 )
+
+type settingsKey string
+
+const (
+	// BasicModeKey is the key for the basic mode setting in the request context.
+	BasicModeKey settingsKey = "basicMode"
+)
+
+// IsBasicMode returns true if the "basic mode" flag is set in the request context.
+func IsBasicMode(ctx context.Context) bool {
+	basic, ok := ctx.Value(BasicModeKey).(bool)
+	return ok && basic
+}
 
 // legacyUserAgents contains substrings of User-Agent headers for browsers
 // that are known to not support JavaScript or HTMX well.
@@ -44,7 +56,7 @@ func SettingsMiddleware(next http.Handler) http.Handler {
 			basicMode = isLegacyBrowser(userAgent)
 		}
 
-		ctx := context.WithValue(r.Context(), view.BasicModeKey, basicMode)
+		ctx := context.WithValue(r.Context(), BasicModeKey, basicMode)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
