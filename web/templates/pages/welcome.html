@@ -3,10 +3,14 @@
 {{define "title"}}Welcome to Go Wiki{{end}}
 
 {{define "content"}}
-<div class="welcome-container">
-    <h2>Welcome to Go Wiki!</h2>
+<article>
+    <header>
+        <h2>Welcome to Go Wiki!</h2>
+    </header>
     <p>This is a collaborative wiki application. To get started, please log in.</p>
     <p>If you don't have an account, you can register through the login page.</p>
-    <a href="/auth/login" class="button">Login / Register</a>
-</div>
+    <footer>
+        <a href="/auth/login" role="button">Login / Register</a>
+    </footer>
+</article>
 {{end}}
