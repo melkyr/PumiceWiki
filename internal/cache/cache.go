@@ -29,6 +29,14 @@ func New(filePath string) (*Cache, error) {
 		return nil, fmt.Errorf("failed to set WAL mode on sqlite cache: %w", err)
 	}
 
+	// Apply performance tuning PRAGMAs as suggested by the user.
+	// These are safe for a cache where durability is less critical than speed.
+	// We ignore errors as some PRAGMAs might not be supported on all systems.
+	_, _ = db.Exec("PRAGMA synchronous = NORMAL;")
+	_, _ = db.Exec("PRAGMA temp_store = MEMORY;")
+	_, _ = db.Exec("PRAGMA cache_size = -20000;")   // ~20MB
+	_, _ = db.Exec("PRAGMA mmap_size = 268435456;") // 256MB
+
 	schema := `
 	CREATE TABLE IF NOT EXISTS cache (
 		key TEXT PRIMARY KEY,
