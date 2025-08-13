@@ -24,7 +24,7 @@ func NewSQLPageRepository(db *sqlx.DB) *SQLPageRepository {
 // will correctly handle auto-incrementing IDs and default timestamps.
 // The provided 'page' object is not updated with DB-generated values post-insert.
 func (r *SQLPageRepository) CreatePage(ctx context.Context, page *Page) error {
-	query := `INSERT INTO pages (title, content, author_id) VALUES (:title, :content, :author_id)`
+	query := `INSERT INTO pages (title, content, author_id, category_id) VALUES (:title, :content, :author_id, :category_id)`
 	_, err := r.db.NamedExecContext(ctx, query, page)
 	if err != nil {
 		return fmt.Errorf("failed to execute create page query: %w", err)
@@ -62,7 +62,7 @@ func (r *SQLPageRepository) GetPageByID(ctx context.Context, id int64) (*Page, e
 
 // UpdatePage updates an existing page in the database.
 func (r *SQLPageRepository) UpdatePage(ctx context.Context, page *Page) error {
-	query := `UPDATE pages SET title = :title, content = :content, updated_at = :updated_at WHERE id = :id`
+	query := `UPDATE pages SET title = :title, content = :content, updated_at = :updated_at, category_id = :category_id WHERE id = :id`
 	result, err := r.db.NamedExecContext(ctx, query, page)
 	if err != nil {
 		return fmt.Errorf("failed to update page: %w", err)
@@ -75,6 +75,16 @@ func (r *SQLPageRepository) UpdatePage(ctx context.Context, page *Page) error {
 		return fmt.Errorf("no page found to update with id %d", page.ID)
 	}
 	return nil
+}
+
+// GetPagesByCategoryID retrieves all pages associated with a given category ID.
+func (r *SQLPageRepository) GetPagesByCategoryID(ctx context.Context, categoryID int64) ([]*Page, error) {
+	var pages []*Page
+	query := `SELECT * FROM pages WHERE category_id = ?`
+	if err := r.db.SelectContext(ctx, &pages, query, categoryID); err != nil {
+		return nil, fmt.Errorf("failed to get pages by category id: %w", err)
+	}
+	return pages, nil
 }
 
 // GetAllPages retrieves all pages from the database.

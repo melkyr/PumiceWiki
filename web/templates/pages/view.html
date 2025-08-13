@@ -6,6 +6,11 @@
 <article>
     <header>
         <h2>{{.Page.Title}}</h2>
+        <p>
+            <small>
+                Category: {{.Page.CategoryName}} / Subcategory: {{.Page.SubcategoryName}}
+            </small>
+        </p>
     </header>
     <div class="page-content">
         {{.Page.HTMLContent}}

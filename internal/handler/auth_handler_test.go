@@ -36,8 +36,8 @@ func (m *mockSessionManager) Destroy(ctx context.Context) error {
 func TestLogoutHandler(t *testing.T) {
 	// Arrange
 	mockSession := &mockSessionManager{}
-	// We pass nil for the authenticator as it's not used by the logout handler.
-	authHandler := NewAuthHandler(nil, mockSession)
+	// We pass nil for the authenticator and enforcer as they are not used by the logout handler.
+	authHandler := NewAuthHandler(nil, mockSession, nil)
 
 	req := httptest.NewRequest("GET", "/auth/logout", nil)
 	rr := httptest.NewRecorder()

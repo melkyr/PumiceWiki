@@ -98,7 +98,8 @@ func main() {
 	// --- Dependency Injection and Handler Initialization ---
 	// Initialize the application layers, injecting dependencies from top to bottom.
 	pageRepository := data.NewSQLPageRepository(db)
-	pageService := service.NewPageService(pageRepository, cache)
+	categoryRepository := data.NewCategoryRepository(db)
+	pageService := service.NewPageService(pageRepository, categoryRepository, cache)
 	pageHandler := handler.NewPageHandler(pageService, viewService, log)
 	authHandler := handler.NewAuthHandler(authenticator, sessionManager, enforcer)
 	seoHandler := handler.NewSeoHandler(pageService)

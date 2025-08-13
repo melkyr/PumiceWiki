@@ -1,0 +1,10 @@
+{{range .Categories}}
+<div>
+    <button type="button"
+            class="category-result"
+            data-name="{{.Name}}"
+            onclick="selectCategory(this)">
+        {{.Name}}
+    </button>
+</div>
+{{end}}

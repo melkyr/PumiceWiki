@@ -3,7 +3,25 @@
 {{define "title"}}Wiki Pages{{end}}
 
 {{define "content"}}
-    <h2>Wiki Pages</h2>
+    <nav>
+        <h3>Categories</h3>
+        <ul>
+            {{range .CategoryTree}}
+            <li>
+                <a href="/category/{{.Parent.Name}}">{{.Parent.Name}}</a>
+                {{if .Children}}
+                <ul>
+                    {{range .Children}}
+                    <li><a href="/category/{{.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
+                    {{end}}
+                </ul>
+                {{end}}
+            </li>
+            {{end}}
+        </ul>
+    </nav>
+    <hr>
+    <h2>All Pages</h2>
     <table>
         <thead>
             <tr>

@@ -1,0 +1,25 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "content"}}
+    <h2>{{.Title}}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Pages}}
+            <tr>
+                <td><a href="/view/{{.Title}}">{{.Title}}</a></td>
+            </tr>
+            {{else}}
+            <tr>
+                <td>No pages found in this category.</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+{{end}}

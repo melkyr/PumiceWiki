@@ -9,7 +9,6 @@ import (
 	"go-wiki-app/internal/view"
 	"html/template"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -105,14 +104,41 @@ func (h *PageHandler) listHandler(w http.ResponseWriter, r *http.Request) *middl
 		return &middleware.AppError{Error: err, Message: "Failed to retrieve pages", Code: http.StatusInternalServerError}
 	}
 
+	categoryTree, err := h.pageService.GetCategoryTree(r.Context())
+	if err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to retrieve category tree", Code: http.StatusInternalServerError}
+	}
+
 	userInfo := middleware.GetUserInfo(r.Context())
 	data := map[string]interface{}{
-		"Pages":    pages,
-		"UserInfo": userInfo,
+		"Pages":        pages,
+		"UserInfo":     userInfo,
+		"CategoryTree": categoryTree,
 	}
 	if err := h.view.Render(w, r, "list.html", data); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render list page", Code: http.StatusInternalServerError}
 	}
+	return nil
+}
+
+// searchCategoriesHandler handles API requests to search for categories.
+// It returns an HTML fragment containing the search results.
+func (h *PageHandler) searchCategoriesHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
+	query := r.URL.Query().Get("q")
+	categories, err := h.pageService.SearchCategories(r.Context(), query)
+	if err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to search for categories", Code: http.StatusInternalServerError}
+	}
+
+	data := map[string]interface{}{
+		"Categories": categories,
+	}
+
+	// Render the fragment without the base layout.
+	if err := h.view.Render(w, r, "htmx/category_search_results.html", data); err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to render search results", Code: http.StatusInternalServerError}
+	}
+
 	return nil
 }
 
@@ -123,6 +149,8 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 	originalTitle := chi.URLParam(r, "title")
 	newTitle := r.FormValue("title")
 	content := r.FormValue("content")
+	category := r.FormValue("category")
+	subcategory := r.FormValue("subcategory")
 	userInfo := middleware.GetUserInfo(r.Context())
 	authorID := userInfo.Subject
 
@@ -130,14 +158,12 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 	page, err := h.pageService.ViewPage(r.Context(), originalTitle)
 	if err != nil {
 		// If it doesn't exist, create a new page with the title from the form.
-		if _, err = h.pageService.CreatePage(r.Context(), newTitle, content, authorID); err != nil {
+		if _, err = h.pageService.CreatePage(r.Context(), newTitle, content, authorID, category, subcategory); err != nil {
 			return &middleware.AppError{Error: err, Message: "Failed to create page", Code: http.StatusInternalServerError}
 		}
 	} else {
 		// If it exists, update it with the new title and content from the form.
-		page.Content = content
-		page.UpdatedAt = time.Now()
-		if _, err := h.pageService.UpdatePage(r.Context(), page.ID, newTitle, page.Content); err != nil {
+		if _, err := h.pageService.UpdatePage(r.Context(), page.ID, newTitle, content, category, subcategory); err != nil {
 			return &middleware.AppError{Error: err, Message: "Failed to update page", Code: http.StatusInternalServerError}
 		}
 	}
@@ -150,5 +176,48 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 
 	// For standard requests, use a normal redirect
 	http.Redirect(w, r, "/view/"+newTitle, http.StatusFound)
+	return nil
+}
+
+func (h *PageHandler) viewByCategoryHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
+	categoryName := chi.URLParam(r, "categoryName")
+
+	pages, err := h.pageService.GetPagesForCategory(r.Context(), categoryName)
+	if err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to get pages for category", Code: http.StatusNotFound}
+	}
+
+	data := map[string]interface{}{
+		"Title":      "Category: " + categoryName,
+		"Pages":      pages,
+		"UserInfo":   middleware.GetUserInfo(r.Context()),
+	}
+
+	if err := h.view.Render(w, r, "pages/category_view.html", data); err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to render category view", Code: http.StatusInternalServerError}
+	}
+
+	return nil
+}
+
+func (h *PageHandler) viewBySubcategoryHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
+	categoryName := chi.URLParam(r, "categoryName")
+	subcategoryName := chi.URLParam(r, "subcategoryName")
+
+	pages, err := h.pageService.GetPagesForSubcategory(r.Context(), categoryName, subcategoryName)
+	if err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to get pages for subcategory", Code: http.StatusNotFound}
+	}
+
+	data := map[string]interface{}{
+		"Title":      "Category: " + categoryName + " / " + subcategoryName,
+		"Pages":      pages,
+		"UserInfo":   middleware.GetUserInfo(r.Context()),
+	}
+
+	if err := h.view.Render(w, r, "pages/category_view.html", data); err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to render category view", Code: http.StatusInternalServerError}
+	}
+
 	return nil
 }
