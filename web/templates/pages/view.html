@@ -12,18 +12,16 @@
     </div>
 </article>
 <footer class="page-footer">
-    <div class="grid">
-        {{if ne .Page.Title "Home"}}
-        <a href="/edit/{{.Page.Title}}" role="button" class="secondary">Edit this page</a>
+    {{if ne .Page.Title "Home"}}
+    <a href="/edit/{{.Page.Title}}">Edit this page</a>
+    {{end}}
+    {{range .UserInfo.Roles}}
+        {{if eq . "editor"}}
+            | <a href="/edit/NewPage">Create a new page</a>
+            | <a href="/list">Wiki Pages</a>
         {{end}}
-        {{range .UserInfo.Roles}}
-            {{if eq . "editor"}}
-                <a href="/edit/NewPage" role="button">Create a new page</a>
-                <a href="/list" role="button" class="contrast">Wiki Pages</a>
-            {{end}}
-        {{end}}
-    </div>
-    <br>
+    {{end}}
+    <br><br>
     <a href="/view/Home">Back to Home</a>
 </footer>
 {{end}}
