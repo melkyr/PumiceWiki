@@ -13,16 +13,16 @@ import (
 
 // AuthHandler holds the dependencies for the authentication handlers.
 type AuthHandler struct {
-	auth    *auth.Authenticator
-	session session.Manager
-	enforcer *casbin.Enforcer
+	auth     *auth.Authenticator
+	session  session.Manager
+	enforcer casbin.IEnforcer
 }
 
 // NewAuthHandler creates a new AuthHandler.
-func NewAuthHandler(a *auth.Authenticator, sm session.Manager, e *casbin.Enforcer) *AuthHandler {
+func NewAuthHandler(a *auth.Authenticator, sm session.Manager, e casbin.IEnforcer) *AuthHandler {
 	return &AuthHandler{
-		auth:    a,
-		session: sm,
+		auth:     a,
+		session:  sm,
 		enforcer: e,
 	}
 }

@@ -10,7 +10,11 @@ server:
     keyFile: "key.pem"
 
 db:
-  dsn: "wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true" # Path to the SQLite database file
+  dsn: "wikiuser:wikipass@tcp(mariadb:3306)/go_wiki_app?parseTime=true"
+  max_open_conns: 25
+  max_idle_conns: 25
+  conn_max_lifetime_mins: 5
+  conn_max_idle_time_mins: 2
 
 oidc:
   # These values must be obtained from your Casdoor instance
@@ -28,3 +32,7 @@ session:
   # Generate a new one for production, e.g., with: openssl rand -base64 32
   secret_key: "CHANGE_ME_IN_PRODUCTION_SECRET!!"
   lifetime_hours: 24
+
+cache:
+  file_path: "cache.db"
+  default_ttl_seconds: 300 # 5 minutes

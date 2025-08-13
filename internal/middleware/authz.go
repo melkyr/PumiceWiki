@@ -15,7 +15,7 @@ import (
 //    requested action (e.g., GET) on the requested resource (e.g., /view/SomePage).
 // 4. If allowed, it passes the request to the next handler.
 // 5. If not allowed, it returns a 403 Forbidden error.
-func Authorizer(e *casbin.Enforcer, sm session.Manager) func(http.Handler) http.Handler {
+func Authorizer(e casbin.IEnforcer, sm session.Manager) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// 1. Identify the user (subject) from the session.

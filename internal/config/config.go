@@ -13,6 +13,7 @@ type Config struct {
 	OIDC    OIDCConfig    `mapstructure:"oidc"`
 	Log     LogConfig     `mapstructure:"log"`
 	Session SessionConfig `mapstructure:"session"`
+	Cache   CacheConfig   `mapstructure:"cache"`
 }
 
 // ServerConfig holds server-specific configuration.
@@ -30,7 +31,11 @@ type TLSConfig struct {
 
 // DBConfig holds database-specific configuration.
 type DBConfig struct {
-	DSN string `mapstructure:"dsn"`
+	DSN                 string `mapstructure:"dsn"`
+	MaxOpenConns        int    `mapstructure:"max_open_conns"`
+	MaxIdleConns        int    `mapstructure:"max_idle_conns"`
+	ConnMaxLifetimeMins int    `mapstructure:"conn_max_lifetime_mins"`
+	ConnMaxIdleTimeMins int    `mapstructure:"conn_max_idle_time_mins"`
 }
 
 // OIDCConfig holds OIDC client configuration.
@@ -53,15 +58,27 @@ type SessionConfig struct {
 	Lifetime  int    `mapstructure:"lifetime_hours"`
 }
 
+// CacheConfig holds cache-specific configuration.
+type CacheConfig struct {
+	FilePath          string `mapstructure:"file_path"`
+	DefaultTTLSeconds int    `mapstructure:"default_ttl_seconds"`
+}
+
 // LoadConfig reads configuration from file and environment variables.
 func LoadConfig() (*Config, error) {
 	// Set default values
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("db.dsn", "wikiuser:wikipass@tcp(127.0.0.1:3306)/go_wiki_app?parseTime=true")
+	viper.SetDefault("db.max_open_conns", 25)
+	viper.SetDefault("db.max_idle_conns", 25)
+	viper.SetDefault("db.conn_max_lifetime_mins", 5)
+	viper.SetDefault("db.conn_max_idle_time_mins", 2)
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.format", "console")
 	viper.SetDefault("session.lifetime_hours", 24)
 	// No default for secret key, it must be provided.
+	viper.SetDefault("cache.file_path", "cache.db")
+	viper.SetDefault("cache.default_ttl_seconds", 300) // 5 minutes
 
 
 	// Set up viper to read from config file

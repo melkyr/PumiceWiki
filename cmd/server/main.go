@@ -10,6 +10,7 @@ import (
 	"go-wiki-app/internal/handler"
 	"go-wiki-app/internal/logger"
 	"go-wiki-app/internal/middleware"
+	"go-wiki-app/internal/cache"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
 	"go-wiki-app/web"
@@ -49,7 +50,7 @@ func main() {
 	log.Info("Migrations applied successfully.")
 
 	log.Info("Connecting to the database...")
-	db, err := data.NewDB(cfg.DB.DSN)
+	db, err := data.NewDB(cfg.DB)
 	if err != nil {
 		log.Fatal(err, "Failed to connect to database")
 	}
@@ -85,10 +86,19 @@ func main() {
 	}
 	log.Info("View templates initialized.")
 
+	// --- Cache Initialization ---
+	log.Info("Initializing SQLite cache...")
+	cache, err := cache.New(cfg.Cache.FilePath)
+	if err != nil {
+		log.Fatal(err, "Failed to initialize cache")
+	}
+	defer cache.Close()
+	log.Info("Cache initialized.")
+
 	// --- Dependency Injection and Handler Initialization ---
 	// Initialize the application layers, injecting dependencies from top to bottom.
 	pageRepository := data.NewSQLPageRepository(db)
-	pageService := service.NewPageService(pageRepository)
+	pageService := service.NewPageService(pageRepository, cache)
 	pageHandler := handler.NewPageHandler(pageService, viewService, log)
 	authHandler := handler.NewAuthHandler(authenticator, sessionManager, enforcer)
 	seoHandler := handler.NewSeoHandler(pageService)
@@ -133,7 +143,7 @@ func main() {
 // seedDefaultPolicies ensures that the application has a baseline set of authorization rules.
 // It checks if each default policy exists before adding it, making the operation idempotent
 // and safe to run on every application start.
-func seedDefaultPolicies(e *casbin.Enforcer, log logger.Logger) {
+func seedDefaultPolicies(e casbin.IEnforcer, log logger.Logger) {
 	log.Info("Seeding default authorization policies...")
 
 	// Default policies grant basic access to anonymous users and content management

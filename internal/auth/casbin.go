@@ -16,7 +16,7 @@ import (
 //   - modelPath: The file path to the Casbin model configuration (`.conf`).
 //
 // Returns a fully configured Casbin enforcer or an error if setup fails.
-func NewEnforcer(driverName, dsn, modelPath string) (*casbin.Enforcer, error) {
+func NewEnforcer(driverName, dsn, modelPath string) (casbin.IEnforcer, error) {
 	// Initialize the database adapter for Casbin. This allows Casbin to store
 	// its policies in our application's database.
 	opts := &sqlxadapter.AdapterOptions{
@@ -26,8 +26,8 @@ func NewEnforcer(driverName, dsn, modelPath string) (*casbin.Enforcer, error) {
 	}
 	adapter := sqlxadapter.NewAdapterFromOptions(opts)
 
-	// Create a new enforcer with the model file and the database adapter.
-	enforcer, err := casbin.NewEnforcer(modelPath, adapter)
+	// Create a new cached enforcer with the model file and the database adapter.
+	enforcer, err := casbin.NewCachedEnforcer(modelPath, adapter)
 	if err != nil {
 		return nil, err
 	}
