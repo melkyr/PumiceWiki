@@ -10,6 +10,7 @@ import (
 	"go-wiki-app/internal/handler"
 	"go-wiki-app/internal/logger"
 	"go-wiki-app/internal/middleware"
+	"go-wiki-app/internal/cache"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
 	"go-wiki-app/web"
@@ -85,10 +86,19 @@ func main() {
 	}
 	log.Info("View templates initialized.")
 
+	// --- Cache Initialization ---
+	log.Info("Initializing SQLite cache...")
+	cache, err := cache.New(cfg.Cache.FilePath)
+	if err != nil {
+		log.Fatal(err, "Failed to initialize cache")
+	}
+	defer cache.Close()
+	log.Info("Cache initialized.")
+
 	// --- Dependency Injection and Handler Initialization ---
 	// Initialize the application layers, injecting dependencies from top to bottom.
 	pageRepository := data.NewSQLPageRepository(db)
-	pageService := service.NewPageService(pageRepository)
+	pageService := service.NewPageService(pageRepository, cache)
 	pageHandler := handler.NewPageHandler(pageService, viewService, log)
 	authHandler := handler.NewAuthHandler(authenticator, sessionManager, enforcer)
 	seoHandler := handler.NewSeoHandler(pageService)

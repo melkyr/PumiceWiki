@@ -32,3 +32,7 @@ session:
   # Generate a new one for production, e.g., with: openssl rand -base64 32
   secret_key: "CHANGE_ME_IN_PRODUCTION_SECRET!!"
   lifetime_hours: 24
+
+cache:
+  file_path: "cache.db"
+  default_ttl_seconds: 300 # 5 minutes

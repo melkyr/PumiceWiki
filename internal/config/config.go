@@ -13,6 +13,7 @@ type Config struct {
 	OIDC    OIDCConfig    `mapstructure:"oidc"`
 	Log     LogConfig     `mapstructure:"log"`
 	Session SessionConfig `mapstructure:"session"`
+	Cache   CacheConfig   `mapstructure:"cache"`
 }
 
 // ServerConfig holds server-specific configuration.
@@ -57,6 +58,12 @@ type SessionConfig struct {
 	Lifetime  int    `mapstructure:"lifetime_hours"`
 }
 
+// CacheConfig holds cache-specific configuration.
+type CacheConfig struct {
+	FilePath          string `mapstructure:"file_path"`
+	DefaultTTLSeconds int    `mapstructure:"default_ttl_seconds"`
+}
+
 // LoadConfig reads configuration from file and environment variables.
 func LoadConfig() (*Config, error) {
 	// Set default values
@@ -70,6 +77,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("log.format", "console")
 	viper.SetDefault("session.lifetime_hours", 24)
 	// No default for secret key, it must be provided.
+	viper.SetDefault("cache.file_path", "cache.db")
+	viper.SetDefault("cache.default_ttl_seconds", 300) // 5 minutes
 
 
 	// Set up viper to read from config file
