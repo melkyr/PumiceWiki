@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"go-wiki-app/internal/auth"
+	"go-wiki-app/internal/cache"
 	"go-wiki-app/internal/config"
 	"go-wiki-app/internal/data"
 	"go-wiki-app/internal/handler"
 	"go-wiki-app/internal/logger"
 	"go-wiki-app/internal/middleware"
-	"go-wiki-app/internal/cache"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
 	"go-wiki-app/web"
@@ -22,14 +22,12 @@ import (
 
 	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/alexedwards/scs/v2"
-	"github.com/casbin/casbin/v2"
 )
 
 func main() {
 	// --- Configuration Loading ---
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		// Use fmt.Printf here because the logger is not yet initialized.
 		fmt.Printf("Failed to load configuration: %v\n", err)
 		os.Exit(1)
 	}
@@ -75,7 +73,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err, "Failed to initialize enforcer")
 	}
-	seedDefaultPolicies(enforcer, log)
+	auth.SeedDefaultPolicies(enforcer, log) // Call the new function
 	log.Info("Auth components initialized and policies seeded.")
 
 	// --- View Template Initialization ---
@@ -96,7 +94,6 @@ func main() {
 	log.Info("Cache initialized.")
 
 	// --- Dependency Injection and Handler Initialization ---
-	// Initialize the application layers, injecting dependencies from top to bottom.
 	pageRepository := data.NewSQLPageRepository(db)
 	categoryRepository := data.NewCategoryRepository(db)
 	pageService := service.NewPageService(pageRepository, categoryRepository, cache)
@@ -108,7 +105,6 @@ func main() {
 	errorMiddleware := middleware.Error(log, viewService)
 
 	// --- Router Setup ---
-	// The router is the central hub that directs incoming requests to the correct handlers.
 	router := handler.NewRouter(pageHandler, authHandler, seoHandler, authzMiddleware, errorMiddleware, sessionManager)
 
 	// --- Server Initialization and Graceful Shutdown ---
@@ -139,40 +135,4 @@ func main() {
 		log.Fatal(err, "Server forced to shutdown")
 	}
 	log.Info("Server exiting")
-}
-
-// seedDefaultPolicies ensures that the application has a baseline set of authorization rules.
-// It checks if each default policy exists before adding it, making the operation idempotent
-// and safe to run on every application start.
-func seedDefaultPolicies(e casbin.IEnforcer, log logger.Logger) {
-	log.Info("Seeding default authorization policies...")
-
-	// Default policies grant basic access to anonymous users and content management
-	// permissions to editors. Note that the 'editor' role inherits from 'anonymous'.
-	policies := [][]string{
-		// Anonymous users can view pages and access login/callback routes.
-		{"anonymous", "/view/*", "GET"},
-		{"anonymous", "/auth/login", "GET"},
-		{"anonymous", "/auth/callback", "GET"},
-
-		// Editors can do everything anonymous users can, plus edit, save, and list pages.
-		{"editor", "/edit/*", "GET"},
-		{"editor", "/save/*", "POST"},
-		{"editor", "/list", "GET"},
-	}
-	for _, p := range policies {
-		if has, _ := e.HasPolicy(p); !has {
-			if _, err := e.AddPolicy(p); err != nil {
-				log.Error(err, fmt.Sprintf("Failed to add policy %v", p))
-			}
-		}
-	}
-
-	// Granting the 'editor' role all permissions of the 'anonymous' role.
-	if has, _ := e.HasRoleForUser("editor", "anonymous"); !has {
-		if _, err := e.AddRoleForUser("editor", "anonymous"); err != nil {
-			log.Error(err, "Failed to add role 'editor' -> 'anonymous'")
-		}
-	}
-	log.Info("Policy seeding complete.")
 }

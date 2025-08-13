@@ -3,24 +3,6 @@
 {{define "title"}}Wiki Pages{{end}}
 
 {{define "content"}}
-    <nav>
-        <h3>Categories</h3>
-        <ul>
-            {{range $node := .CategoryTree}}
-            <li>
-                <a href="/category/{{$node.Parent.Name}}">{{$node.Parent.Name}}</a>
-                {{if $node.Children}}
-                <ul>
-                    {{range $node.Children}}
-                    <li><a href="/category/{{$node.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
-                    {{end}}
-                </ul>
-                {{end}}
-            </li>
-            {{end}}
-        </ul>
-    </nav>
-    <hr>
     <h2>All Pages</h2>
     <table>
         <thead>
@@ -36,6 +18,29 @@
             {{end}}
         </tbody>
     </table>
+
+    <hr>
+
+    <details>
+        <summary>Browse by Category</summary>
+        <nav>
+            <ul>
+                {{range $node := .CategoryTree}}
+                <li>
+                    <a href="/category/{{$node.Parent.Name}}"><strong>{{$node.Parent.Name}}</strong></a>
+                    {{if $node.Children}}
+                    <ul>
+                        {{range $node.Children}}
+                        <li><a href="/category/{{$node.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
+                        {{end}}
+                    </ul>
+                    {{end}}
+                </li>
+                {{end}}
+            </ul>
+        </nav>
+    </details>
+
     <footer class="page-footer">
         {{range .UserInfo.Roles}}
             {{if eq . "editor"}}
