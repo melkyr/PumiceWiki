@@ -1,0 +1,23 @@
+{{template "base" .}}
+
+{{define "title"}}Categories{{end}}
+
+{{define "content"}}
+    <h2>Categories</h2>
+    <nav>
+        <ul>
+            {{range $node := .CategoryTree}}
+            <li>
+                <a href="/category/{{$node.Parent.Name}}"><strong>{{$node.Parent.Name}}</strong></a>
+                {{if $node.Children}}
+                <ul>
+                    {{range $node.Children}}
+                    <li><a href="/category/{{$node.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
+                    {{end}}
+                </ul>
+                {{end}}
+            </li>
+            {{end}}
+        </ul>
+    </nav>
+{{end}}

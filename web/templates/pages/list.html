@@ -36,4 +36,14 @@
             {{end}}
         </tbody>
     </table>
+    <footer class="page-footer">
+        {{range .UserInfo.Roles}}
+            {{if eq . "editor"}}
+                <a href="/edit/NewPage">Create a new page</a>
+                | <a href="/categories">Categories</a>
+            {{end}}
+        {{end}}
+        <br><br>
+        <a href="/view/Home">Back to Home</a>
+    </footer>
 {{end}}

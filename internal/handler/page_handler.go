@@ -200,6 +200,22 @@ func (h *PageHandler) viewByCategoryHandler(w http.ResponseWriter, r *http.Reque
 	return nil
 }
 
+func (h *PageHandler) categoriesHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
+	categoryTree, err := h.pageService.GetCategoryTree(r.Context())
+	if err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to retrieve category tree", Code: http.StatusInternalServerError}
+	}
+
+	data := map[string]interface{}{
+		"UserInfo":     middleware.GetUserInfo(r.Context()),
+		"CategoryTree": categoryTree,
+	}
+	if err := h.view.Render(w, r, "pages/categories.html", data); err != nil {
+		return &middleware.AppError{Error: err, Message: "Failed to render categories page", Code: http.StatusInternalServerError}
+	}
+	return nil
+}
+
 func (h *PageHandler) viewBySubcategoryHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	categoryName := chi.URLParam(r, "categoryName")
 	subcategoryName := chi.URLParam(r, "subcategoryName")
