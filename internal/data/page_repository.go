@@ -37,7 +37,7 @@ func (r *SQLPageRepository) CreatePage(ctx context.Context, page *Page) error {
 // GetPageByTitle retrieves a single page from the database by its title.
 func (r *SQLPageRepository) GetPageByTitle(ctx context.Context, title string) (*Page, error) {
 	var page Page
-	query := `SELECT * FROM pages WHERE title = ?`
+	query := `SELECT id, title, content, author_id, created_at, updated_at, category_id FROM pages WHERE title = ?`
 	if err := r.db.GetContext(ctx, &page, query, title); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("page with title '%s' not found", title)
@@ -50,7 +50,7 @@ func (r *SQLPageRepository) GetPageByTitle(ctx context.Context, title string) (*
 // GetPageByID retrieves a single page from the database by its ID.
 func (r *SQLPageRepository) GetPageByID(ctx context.Context, id int64) (*Page, error) {
 	var page Page
-	query := `SELECT * FROM pages WHERE id = ?`
+	query := `SELECT id, title, content, author_id, created_at, updated_at, category_id FROM pages WHERE id = ?`
 	if err := r.db.GetContext(ctx, &page, query, id); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("page with id %d not found", id)
@@ -80,7 +80,7 @@ func (r *SQLPageRepository) UpdatePage(ctx context.Context, page *Page) error {
 // GetPagesByCategoryID retrieves all pages associated with a given category ID.
 func (r *SQLPageRepository) GetPagesByCategoryID(ctx context.Context, categoryID int64) ([]*Page, error) {
 	var pages []*Page
-	query := `SELECT * FROM pages WHERE category_id = ?`
+	query := `SELECT id, title, content, author_id, created_at, updated_at, category_id FROM pages WHERE category_id = ?`
 	if err := r.db.SelectContext(ctx, &pages, query, categoryID); err != nil {
 		return nil, fmt.Errorf("failed to get pages by category id: %w", err)
 	}
@@ -90,7 +90,7 @@ func (r *SQLPageRepository) GetPagesByCategoryID(ctx context.Context, categoryID
 // GetAllPages retrieves all pages from the database.
 func (r *SQLPageRepository) GetAllPages(ctx context.Context) ([]*Page, error) {
 	var pages []*Page
-	query := `SELECT * FROM pages`
+	query := `SELECT id, title, content, author_id, created_at, updated_at, category_id FROM pages`
 	if err := r.db.SelectContext(ctx, &pages, query); err != nil {
 		return nil, fmt.Errorf("failed to get all pages: %w", err)
 	}

@@ -74,6 +74,9 @@ func (m *mockPageService) GetPagesForSubcategory(ctx context.Context, categoryNa
 func TestViewHandler_Welcome(t *testing.T) {
 	pageService := &mockPageService{
 		ViewPageFunc: func(ctx context.Context, title string) (*data.Page, error) {
+			if title == "Home" {
+				return nil, service.ErrAnonymousHome
+			}
 			return nil, errors.New("page not found")
 		},
 	}

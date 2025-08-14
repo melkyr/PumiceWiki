@@ -19,10 +19,13 @@ func NewCategoryRepository(db *sqlx.DB) *CategoryRepository {
 func (r *CategoryRepository) FindByName(name string, parentID *int64) (*Category, error) {
 	var category Category
 	var err error
+	query := "SELECT id, name, parent_id FROM categories WHERE name = ? AND parent_id "
 	if parentID == nil {
-		err = r.DB.Get(&category, "SELECT * FROM categories WHERE name = ? AND parent_id IS NULL", name)
+		query += "IS NULL"
+		err = r.DB.Get(&category, query, name)
 	} else {
-		err = r.DB.Get(&category, "SELECT * FROM categories WHERE name = ? AND parent_id = ?", name, *parentID)
+		query += "= ?"
+		err = r.DB.Get(&category, query, name, *parentID)
 	}
 
 	if err != nil {
@@ -37,7 +40,7 @@ func (r *CategoryRepository) FindByName(name string, parentID *int64) (*Category
 // SearchByName searches for categories by name.
 func (r *CategoryRepository) SearchByName(query string) ([]*Category, error) {
 	var categories []*Category
-	err := r.DB.Select(&categories, "SELECT * FROM categories WHERE name LIKE ?", "%"+query+"%")
+	err := r.DB.Select(&categories, "SELECT id, name, parent_id FROM categories WHERE name LIKE ?", "%"+query+"%")
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +50,7 @@ func (r *CategoryRepository) SearchByName(query string) ([]*Category, error) {
 // GetAll retrieves all categories from the database.
 func (r *CategoryRepository) GetAll() ([]*Category, error) {
 	var categories []*Category
-	err := r.DB.Select(&categories, "SELECT * FROM categories ORDER BY name")
+	err := r.DB.Select(&categories, "SELECT id, name, parent_id FROM categories ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +73,7 @@ func (r *CategoryRepository) Save(category *Category) (int64, error) {
 // GetByID finds a category by its ID.
 func (r *CategoryRepository) GetByID(id int64) (*Category, error) {
 	var category Category
-	err := r.DB.Get(&category, "SELECT * FROM categories WHERE id = ?", id)
+	err := r.DB.Get(&category, "SELECT id, name, parent_id FROM categories WHERE id = ?", id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // Not found is not an error
