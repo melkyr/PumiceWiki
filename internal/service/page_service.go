@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go-wiki-app/internal/cache"
 	"go-wiki-app/internal/data"
+	"go-wiki-app/internal/middleware"
 	"html/template"
 	"time"
 
@@ -52,6 +54,8 @@ type PageServicer interface {
 	GetPagesForCategory(ctx context.Context, categoryName string) ([]*data.Page, error)
 	GetPagesForSubcategory(ctx context.Context, categoryName string, subcategoryName string) ([]*data.Page, error)
 }
+
+var ErrAnonymousHome = errors.New("anonymous user viewing non-existent home page")
 
 // PageService provides business logic for managing pages.
 type PageService struct {
@@ -108,13 +112,26 @@ func (s *PageService) ViewPage(ctx context.Context, title string) (*data.Page, e
 	}
 	page, err := s.repo.GetPageByTitle(ctx, title)
 	if err != nil {
-		return nil, err
-	}
-	if err := s.populateCategoryNames(page); err != nil {
-		// Log error but don't fail the request
-	}
-	if bytesToCache, err := json.Marshal(page); err == nil {
-		s.cache.Set(cacheKey, bytesToCache, 5*time.Minute)
+		if title == "Home" {
+			userInfo := middleware.GetUserInfo(ctx)
+			if userInfo.Subject == "anonymous" {
+				return nil, ErrAnonymousHome
+			}
+			// Return a default page for logged-in users if Home doesn't exist
+			page = &data.Page{
+				Title:   "Home",
+				Content: "Welcome! This page is empty.",
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get page from repo: %w", err)
+		}
+	} else {
+		if err := s.populateCategoryNames(page); err != nil {
+			// Log error but don't fail the request
+		}
+		if bytesToCache, err := json.Marshal(page); err == nil {
+			s.cache.Set(cacheKey, bytesToCache, 5*time.Minute)
+		}
 	}
 	s.processMarkdown(page)
 	return page, nil

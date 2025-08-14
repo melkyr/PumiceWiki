@@ -7,7 +7,6 @@ import (
 	"go-wiki-app/internal/middleware"
 	"go-wiki-app/internal/service"
 	"go-wiki-app/internal/view"
-	"html/template"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -29,36 +28,31 @@ func NewPageHandler(ps service.PageServicer, v *view.View, log logger.Logger) *P
 	}
 }
 
+// newTemplateData creates a map for template data and pre-populates it with common data.
+func newTemplateData(r *http.Request) map[string]interface{} {
+	data := make(map[string]interface{})
+	data["UserInfo"] = middleware.GetUserInfo(r.Context())
+	data["IsBasicMode"] = middleware.IsBasicMode(r.Context())
+	return data
+}
+
 // viewHandler handles requests to view a wiki page.
 func (h *PageHandler) viewHandler(w http.ResponseWriter, r *http.Request) *middleware.AppError {
 	title := chi.URLParam(r, "title")
-	userInfo := middleware.GetUserInfo(r.Context())
+	templateData := newTemplateData(r)
 
 	page, err := h.pageService.ViewPage(r.Context(), title)
 	if err != nil {
-		if title == "Home" {
-			templateData := map[string]interface{}{"IsBasicMode": middleware.IsBasicMode(r.Context())}
-			if userInfo.Subject == "anonymous" {
-				if err := h.view.Render(w, r, "pages/welcome.html", templateData); err != nil {
-					return &middleware.AppError{Error: err, Message: "Failed to render welcome page", Code: http.StatusInternalServerError}
-				}
-				return nil
+		if errors.Is(err, service.ErrAnonymousHome) {
+			if err := h.view.Render(w, r, "pages/welcome.html", templateData); err != nil {
+				return &middleware.AppError{Error: err, Message: "Failed to render welcome page", Code: http.StatusInternalServerError}
 			}
-			page = &data.Page{
-				Title:       "Home",
-				Content:     "Welcome! This page is empty.",
-				HTMLContent: template.HTML("<p>Welcome! This page is empty.</p>"),
-			}
-		} else {
-			return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
+			return nil
 		}
+		return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
 	}
 
-	templateData := map[string]interface{}{
-		"Page":        page,
-		"UserInfo":    userInfo,
-		"IsBasicMode": middleware.IsBasicMode(r.Context()),
-	}
+	templateData["Page"] = page
 	if err := h.view.Render(w, r, "pages/view.html", templateData); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render view", Code: http.StatusInternalServerError}
 	}
@@ -71,16 +65,19 @@ func (h *PageHandler) editHandler(w http.ResponseWriter, r *http.Request) *middl
 	if title == "Home" {
 		return &middleware.AppError{Error: errors.New("home page is not editable"), Message: "The Home page cannot be edited.", Code: http.StatusForbidden}
 	}
+
 	page, err := h.pageService.ViewPage(r.Context(), title)
+	// An error is expected if the page doesn't exist yet. We create a new page object in that case.
 	if err != nil {
+		// We don't want to show an edit page for the anonymous-home-page case.
+		if errors.Is(err, service.ErrAnonymousHome) {
+			return &middleware.AppError{Error: err, Message: "Page not found", Code: http.StatusNotFound}
+		}
 		page = &data.Page{Title: title}
 	}
 
-	templateData := map[string]interface{}{
-		"Page":        page,
-		"UserInfo":    middleware.GetUserInfo(r.Context()),
-		"IsBasicMode": middleware.IsBasicMode(r.Context()),
-	}
+	templateData := newTemplateData(r)
+	templateData["Page"] = page
 	if err := h.view.Render(w, r, "pages/edit.html", templateData); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render edit page", Code: http.StatusInternalServerError}
 	}
@@ -97,12 +94,9 @@ func (h *PageHandler) listHandler(w http.ResponseWriter, r *http.Request) *middl
 	if err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to retrieve category tree", Code: http.StatusInternalServerError}
 	}
-	templateData := map[string]interface{}{
-		"Pages":        pages,
-		"UserInfo":     middleware.GetUserInfo(r.Context()),
-		"CategoryTree": categoryTree,
-		"IsBasicMode":  middleware.IsBasicMode(r.Context()),
-	}
+	templateData := newTemplateData(r)
+	templateData["Pages"] = pages
+	templateData["CategoryTree"] = categoryTree
 	if err := h.view.Render(w, r, "pages/list.html", templateData); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render list page", Code: http.StatusInternalServerError}
 	}
@@ -116,10 +110,8 @@ func (h *PageHandler) searchCategoriesHandler(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to search for categories", Code: http.StatusInternalServerError}
 	}
-	templateData := map[string]interface{}{
-		"Categories":  categories,
-		"IsBasicMode": middleware.IsBasicMode(r.Context()),
-	}
+	templateData := newTemplateData(r)
+	templateData["Categories"] = categories
 	if err := h.view.Render(w, r, "pages/htmx/category_search_results.html", templateData); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render search results", Code: http.StatusInternalServerError}
 	}
@@ -135,14 +127,27 @@ func (h *PageHandler) saveHandler(w http.ResponseWriter, r *http.Request) *middl
 	subcategory := r.FormValue("subcategory")
 	authorID := middleware.GetUserInfo(r.Context()).Subject
 
+	// Server-side validation to prevent editing "Home" page
+	if originalTitle == "Home" || newTitle == "Home" {
+		return &middleware.AppError{Error: errors.New("home page is not editable"), Message: "The Home page cannot be edited.", Code: http.StatusForbidden}
+	}
+
 	page, err := h.pageService.ViewPage(r.Context(), originalTitle)
 	if err != nil {
-		if _, err = h.pageService.CreatePage(r.Context(), newTitle, content, authorID, category, subcategory); err != nil {
-			return &middleware.AppError{Error: err, Message: "Failed to create page", Code: http.StatusInternalServerError}
+		// If the page does not exist (and it's not the special anonymous home case), create it.
+		if !errors.Is(err, service.ErrAnonymousHome) {
+			if _, createErr := h.pageService.CreatePage(r.Context(), newTitle, content, authorID, category, subcategory); createErr != nil {
+				return &middleware.AppError{Error: createErr, Message: "Failed to create page", Code: http.StatusInternalServerError}
+			}
+		} else {
+			// This case indicates trying to save a page from a state that shouldn't be possible (e.g., anonymous user on home).
+			return &middleware.AppError{Error: err, Message: "Cannot create page from this state", Code: http.StatusBadRequest}
 		}
 	} else {
-		if _, err := h.pageService.UpdatePage(r.Context(), page.ID, newTitle, content, category, subcategory); err != nil {
-			return &middleware.AppError{Error: err, Message: "Failed to update page", Code: http.StatusInternalServerError}
+		// If the page exists, update it.
+		// The page object from ViewPage will have the ID we need.
+		if _, updateErr := h.pageService.UpdatePage(r.Context(), page.ID, newTitle, content, category, subcategory); updateErr != nil {
+			return &middleware.AppError{Error: updateErr, Message: "Failed to update page", Code: http.StatusInternalServerError}
 		}
 	}
 
@@ -161,12 +166,9 @@ func (h *PageHandler) viewByCategoryHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to get pages for category", Code: http.StatusNotFound}
 	}
-	templateData := map[string]interface{}{
-		"Title":       "Category: " + categoryName,
-		"Pages":       pages,
-		"UserInfo":    middleware.GetUserInfo(r.Context()),
-		"IsBasicMode": middleware.IsBasicMode(r.Context()),
-	}
+	templateData := newTemplateData(r)
+	templateData["Title"] = "Category: " + categoryName
+	templateData["Pages"] = pages
 	if err := h.view.Render(w, r, "pages/category_view.html", templateData); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render category view", Code: http.StatusInternalServerError}
 	}
@@ -178,11 +180,8 @@ func (h *PageHandler) categoriesHandler(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to retrieve category tree", Code: http.StatusInternalServerError}
 	}
-	templateData := map[string]interface{}{
-		"UserInfo":     middleware.GetUserInfo(r.Context()),
-		"CategoryTree": categoryTree,
-		"IsBasicMode":  middleware.IsBasicMode(r.Context()),
-	}
+	templateData := newTemplateData(r)
+	templateData["CategoryTree"] = categoryTree
 	if err := h.view.Render(w, r, "pages/categories.html", templateData); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render categories page", Code: http.StatusInternalServerError}
 	}
@@ -196,12 +195,9 @@ func (h *PageHandler) viewBySubcategoryHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to get pages for subcategory", Code: http.StatusNotFound}
 	}
-	templateData := map[string]interface{}{
-		"Title":       "Category: " + categoryName + " / " + subcategoryName,
-		"Pages":       pages,
-		"UserInfo":    middleware.GetUserInfo(r.Context()),
-		"IsBasicMode": middleware.IsBasicMode(r.Context()),
-	}
+	templateData := newTemplateData(r)
+	templateData["Title"] = "Category: " + categoryName + " / " + subcategoryName
+	templateData["Pages"] = pages
 	if err := h.view.Render(w, r, "pages/category_view.html", templateData); err != nil {
 		return &middleware.AppError{Error: err, Message: "Failed to render category view", Code: http.StatusInternalServerError}
 	}
