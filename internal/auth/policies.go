@@ -22,6 +22,7 @@ func SeedDefaultPolicies(e casbin.IEnforcer, log logger.Logger) {
 		{"anonymous", "/auth/callback", "GET"},
 		{"anonymous", "/categories", "GET"},
 		{"anonymous", "/category/*", "GET"},
+		{"anonymous", "/api/search/categories", "GET"},
 
 		// Editors can do everything anonymous users can, plus edit, save, and list pages.
 		{"editor", "/edit/*", "GET"},

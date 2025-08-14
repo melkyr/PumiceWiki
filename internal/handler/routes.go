@@ -57,7 +57,7 @@ func NewRouter(
 		r.Method("POST", "/save/{title}", errorMiddleware(pageHandler.saveHandler))
 		r.Method("GET", "/list", errorMiddleware(pageHandler.listHandler))
 		r.Method("GET", "/categories", errorMiddleware(pageHandler.categoriesHandler))
-		r.Method("GET", "/api/categories/search", errorMiddleware(pageHandler.searchCategoriesHandler))
+		r.Method("GET", "/api/search/categories", errorMiddleware(pageHandler.searchCategoriesHandler))
 		r.Method("GET", "/category/{categoryName}", errorMiddleware(pageHandler.viewByCategoryHandler))
 		r.Method("GET", "/category/{categoryName}/{subcategoryName}", errorMiddleware(pageHandler.viewBySubcategoryHandler))
 	})

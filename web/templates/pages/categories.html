@@ -4,20 +4,19 @@
 
 {{define "content"}}
     <h2>Categories</h2>
-    <nav>
-        <ul>
-            {{range $node := .CategoryTree}}
-            <li>
-                <a href="/category/{{$node.Parent.Name}}"><strong>{{$node.Parent.Name}}</strong></a>
-                {{if $node.Children}}
-                <ul>
-                    {{range $node.Children}}
-                    <li><a href="/category/{{$node.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
-                    {{end}}
-                </ul>
+
+    {{range $node := .CategoryTree}}
+        <article style="margin-bottom: 1rem;">
+            <h4><a href="/category/{{$node.Parent.Name}}">{{$node.Parent.Name}}</a></h4>
+            {{if $node.Children}}
+            <ul>
+                {{range $node.Children}}
+                <li><a href="/category/{{$node.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
                 {{end}}
-            </li>
+            </ul>
+            {{else}}
+            <p><small>This category has no subcategories.</small></p>
             {{end}}
-        </ul>
-    </nav>
+        </article>
+    {{end}}
 {{end}}
