@@ -1,6 +1,13 @@
 package middleware
 
-import "context"
+import (
+	"context"
+	"encoding/gob"
+)
+
+func init() {
+	gob.Register(UserInfo{})
+}
 
 // contextKey defines a custom type for context keys to avoid collisions.
 type contextKey string

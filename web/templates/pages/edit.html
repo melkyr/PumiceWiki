@@ -11,8 +11,21 @@
               hx-target="#edit-content"
               hx-swap="outerHTML"
               {{end}}>
+
             <label for="title">Title:</label>
             <input type="text" id="title" name="title" value="{{.Page.Title}}">
+
+            <label for="category">Category:</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="category" name="category" value="{{.Page.CategoryName}}" style="margin-bottom: 0;">
+                <button type="button" class="secondary" onclick="openCategorySearch('category')" style="width: auto;">Search</button>
+            </div>
+
+            <label for="subcategory">Subcategory:</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="subcategory" name="subcategory" value="{{.Page.SubcategoryName}}" style="margin-bottom: 0;">
+                <button type="button" class="secondary" onclick="openCategorySearch('subcategory')" style="width: auto;">Search</button>
+            </div>
 
             <label for="editor">Content:</label>
             <textarea id="editor" name="content">{{.Page.Content}}</textarea>
@@ -21,12 +34,49 @@
             <span id="save-status"></span>
         </form>
     </div>
+
+    <dialog id="category-search-dialog">
+        <article>
+            <header>
+                <a href="#close" aria-label="Close" class="close" onclick="document.getElementById('category-search-dialog').close()"></a>
+                <h3>Search for a Category</h3>
+            </header>
+            <input type="search"
+                   name="q"
+                   placeholder="Start typing to search..."
+                   hx-get="/api/search/categories"
+                   hx-trigger="keyup changed delay:200ms, search"
+                   hx-target="#category-search-results"
+                   hx-swap="innerHTML">
+            <div id="category-search-results" style="margin-top: 1rem;">
+                <small>Type in the box above to see results.</small>
+            </div>
+        </article>
+    </dialog>
+
 {{end}}
 
 {{define "scripts"}}
     {{if not .IsBasicMode}}
     <script>
-        var easyMDE = new EasyMDE({element: document.getElementById('editor')});
+        var easyMDE = new EasyMDE({
+            element: document.getElementById('editor'),
+            toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "image", "table", "|", "preview", "side-by-side", "fullscreen", "|", "guide"]
+        });
+        let targetFieldId = '';
+
+        function openCategorySearch(fieldId) {
+            targetFieldId = fieldId;
+            document.getElementById('category-search-dialog').showModal();
+        }
+
+        function selectCategory(button) {
+            const categoryName = button.getAttribute('data-name');
+            if (targetFieldId) {
+                document.getElementById(targetFieldId).value = categoryName;
+            }
+            document.getElementById('category-search-dialog').close();
+        }
     </script>
     {{end}}
 {{end}}

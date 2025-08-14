@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"go-wiki-app/internal/cache"
 	"go-wiki-app/internal/data"
 	"html/template"
@@ -21,138 +22,232 @@ type PageRepository interface {
 	GetAllPages(ctx context.Context) ([]*data.Page, error)
 	UpdatePage(ctx context.Context, page *data.Page) error
 	DeletePage(ctx context.Context, id int64) error
+	GetPagesByCategoryID(ctx context.Context, categoryID int64) ([]*data.Page, error)
+}
+
+// CategoryRepository defines the interface for database operations on categories.
+type CategoryRepository interface {
+	FindByName(name string, parentID *int64) (*data.Category, error)
+	Save(category *data.Category) (int64, error)
+	GetByID(id int64) (*data.Category, error)
+	GetAll() ([]*data.Category, error)
+	SearchByName(query string) ([]*data.Category, error)
+}
+
+// CategoryNode represents a parent category and its children.
+type CategoryNode struct {
+	Parent   *data.Category
+	Children []*data.Category
 }
 
 // PageServicer defines the interface for interacting with pages.
 type PageServicer interface {
 	ViewPage(ctx context.Context, title string) (*data.Page, error)
-	CreatePage(ctx context.Context, title, content, authorID string) (*data.Page, error)
-	UpdatePage(ctx context.Context, id int64, title, content string) (*data.Page, error)
+	CreatePage(ctx context.Context, title, content, authorID, categoryName, subcategoryName string) (*data.Page, error)
+	UpdatePage(ctx context.Context, id int64, title, content, categoryName, subcategoryName string) (*data.Page, error)
 	GetAllPages(ctx context.Context) ([]*data.Page, error)
+	DeletePage(ctx context.Context, id int64) error
+	GetCategoryTree(ctx context.Context) ([]*CategoryNode, error)
+	SearchCategories(ctx context.Context, query string) ([]*data.Category, error)
+	GetPagesForCategory(ctx context.Context, categoryName string) ([]*data.Page, error)
+	GetPagesForSubcategory(ctx context.Context, categoryName string, subcategoryName string) ([]*data.Page, error)
 }
 
 // PageService provides business logic for managing pages.
 type PageService struct {
-	repo      PageRepository
-	cache     *cache.Cache
-	sanitizer *bluemonday.Policy
-	markdown  goldmark.Markdown
+	repo         PageRepository
+	categoryRepo CategoryRepository
+	cache        *cache.Cache
+	sanitizer    *bluemonday.Policy
+	markdown     goldmark.Markdown
 }
 
 // NewPageService creates a new PageService with its dependencies.
-func NewPageService(repo PageRepository, cache *cache.Cache) *PageService {
-	// sanitizer is the policy for cleaning user-provided HTML to prevent XSS.
-	// We start with the UGCPolicy which allows common formatting and links.
+func NewPageService(repo PageRepository, categoryRepo CategoryRepository, cache *cache.Cache) *PageService {
 	sanitizer := bluemonday.UGCPolicy()
-	// We explicitly allow images to be rendered.
 	sanitizer.AllowImages()
-
-	// markdown is the engine for converting Markdown text to HTML.
-	markdown := goldmark.New(
-		goldmark.WithExtensions(
-		// Extensions like tables, strikethrough, etc., could be added here.
-		),
-	)
-
+	markdown := goldmark.New(goldmark.WithExtensions())
 	return &PageService{
-		repo:      repo,
-		cache:     cache,
-		sanitizer: sanitizer,
-		markdown:  markdown,
+		repo:         repo,
+		categoryRepo: categoryRepo,
+		cache:        cache,
+		sanitizer:    sanitizer,
+		markdown:     markdown,
 	}
 }
 
 // CreatePage handles the business logic for creating a new wiki page.
-// It sanitizes the user-provided Markdown content before saving it to the database.
-// It also invalidates the cache for the list of all pages.
-func (s *PageService) CreatePage(ctx context.Context, title, content, authorID string) (*data.Page, error) {
-	// Note: We are sanitizing the raw Markdown here. This is a first line of
-	// defense, but the primary sanitization happens after it's converted to HTML.
+func (s *PageService) CreatePage(ctx context.Context, title, content, authorID, categoryName, subcategoryName string) (*data.Page, error) {
 	sanitizedContent := s.sanitizer.Sanitize(content)
-
-	page := &data.Page{
-		Title:    title,
-		Content:  sanitizedContent, // The raw, sanitized Markdown is stored.
-		AuthorID: authorID,
+	categoryID, err := s.getOrCreateCategories(ctx, categoryName, subcategoryName)
+	if err != nil {
+		return nil, err
 	}
-
+	page := &data.Page{
+		Title:      title,
+		Content:    sanitizedContent,
+		AuthorID:   authorID,
+		CategoryID: categoryID,
+	}
 	if err := s.repo.CreatePage(ctx, page); err != nil {
 		return nil, err
 	}
-
-	// Invalidate the cache for the list of all pages since a new page was added.
 	s.cache.Delete("pages:all")
-
 	return page, nil
 }
 
-// ViewPage retrieves a single page by its title. It uses a cache to speed up
-// access to frequently viewed pages. If the page is not in the cache, it
-// fetches it from the repository, stores it in the cache, and then returns it.
-// It also processes the Markdown content into sanitized HTML.
+// ViewPage retrieves a single page by its title.
 func (s *PageService) ViewPage(ctx context.Context, title string) (*data.Page, error) {
-	// 1. Check the cache first.
 	cacheKey := "page:" + title
 	if cachedBytes, _ := s.cache.Get(cacheKey); cachedBytes != nil {
 		var page data.Page
 		if json.Unmarshal(cachedBytes, &page) == nil {
-			// Cache hit, process markdown and return.
 			s.processMarkdown(&page)
 			return &page, nil
 		}
 	}
-
-	// 2. Cache miss: Fetch from the repository.
 	page, err := s.repo.GetPageByTitle(ctx, title)
 	if err != nil {
 		return nil, err
 	}
-
-	// 3. Store in cache for future requests.
-	// We cache the raw page data from the DB, not the processed HTML.
-	if bytesToCache, err := json.Marshal(page); err == nil {
-		s.cache.Set(cacheKey, bytesToCache, 5*time.Minute) // TODO: Use configured TTL
+	if err := s.populateCategoryNames(page); err != nil {
+		// Log error but don't fail the request
 	}
-
-	// 4. Process markdown and return.
+	if bytesToCache, err := json.Marshal(page); err == nil {
+		s.cache.Set(cacheKey, bytesToCache, 5*time.Minute)
+	}
 	s.processMarkdown(page)
 	return page, nil
 }
 
 // UpdatePage handles the logic for updating an existing page.
-// It sanitizes the content and updates the database. Crucially, it also
-// invalidates the cache for the updated page and the list of all pages.
-func (s *PageService) UpdatePage(ctx context.Context, id int64, title, content string) (*data.Page, error) {
+func (s *PageService) UpdatePage(ctx context.Context, id int64, title, content, categoryName, subcategoryName string) (*data.Page, error) {
 	page, err := s.repo.GetPageByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-
-	// Invalidate the cache for the old title, in case the title is being changed.
 	s.cache.Delete("page:" + page.Title)
-	// Invalidate the cache for the list of all pages.
 	s.cache.Delete("pages:all")
-
-	// Sanitize the user-provided content.
 	sanitizedContent := s.sanitizer.Sanitize(content)
-
-	// Update the fields
+	categoryID, err := s.getOrCreateCategories(ctx, categoryName, subcategoryName)
+	if err != nil {
+		return nil, err
+	}
 	page.Title = title
 	page.Content = sanitizedContent
 	page.UpdatedAt = time.Now()
-
+	page.CategoryID = categoryID
 	if err := s.repo.UpdatePage(ctx, page); err != nil {
 		return nil, err
 	}
-
-	// Invalidate the cache for the new title as well.
 	s.cache.Delete("page:" + page.Title)
-
 	return page, nil
 }
 
-// processMarkdown is a helper function to convert a page's Markdown content
-// into sanitized HTML. This logic is used for both cache hits and misses.
+// GetAllPages retrieves all pages.
+func (s *PageService) GetAllPages(ctx context.Context) ([]*data.Page, error) {
+	pages, err := s.repo.GetAllPages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, page := range pages {
+		if err := s.populateCategoryNames(page); err != nil {
+			// Log error but continue
+		}
+	}
+	return pages, nil
+}
+
+// DeletePage handles the deletion of a page by its ID.
+func (s *PageService) DeletePage(ctx context.Context, id int64) error {
+	return s.repo.DeletePage(ctx, id)
+}
+
+// GetCategoryTree fetches all categories and organizes them into a tree structure.
+func (s *PageService) GetCategoryTree(ctx context.Context) ([]*CategoryNode, error) {
+	categories, err := s.categoryRepo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	var nodes []*CategoryNode
+	parentMap := make(map[int64]*CategoryNode)
+	for _, c := range categories {
+		if c.ParentID == nil {
+			node := &CategoryNode{Parent: c}
+			nodes = append(nodes, node)
+			parentMap[c.ID] = node
+		}
+	}
+	for _, c := range categories {
+		if c.ParentID != nil {
+			if parentNode, ok := parentMap[*c.ParentID]; ok {
+				parentNode.Children = append(parentNode.Children, c)
+			}
+		}
+	}
+	return nodes, nil
+}
+
+// SearchCategories searches for categories by name.
+func (s *PageService) SearchCategories(ctx context.Context, query string) ([]*data.Category, error) {
+	return s.categoryRepo.SearchByName(query)
+}
+
+// GetPagesForCategory retrieves all pages for a given category name.
+func (s *PageService) GetPagesForCategory(ctx context.Context, categoryName string) ([]*data.Page, error) {
+	parent, err := s.categoryRepo.FindByName(categoryName, nil)
+	if err != nil {
+		return nil, err
+	}
+	if parent == nil {
+		return nil, fmt.Errorf("category '%s' not found", categoryName)
+	}
+
+	allCategories, err := s.categoryRepo.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var subCategoryIDs []int64
+	for _, cat := range allCategories {
+		if cat.ParentID != nil && *cat.ParentID == parent.ID {
+			subCategoryIDs = append(subCategoryIDs, cat.ID)
+		}
+	}
+
+	var allPages []*data.Page
+	for _, id := range subCategoryIDs {
+		pages, err := s.repo.GetPagesByCategoryID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		allPages = append(allPages, pages...)
+	}
+
+	return allPages, nil
+}
+
+// GetPagesForSubcategory retrieves all pages for a given subcategory name.
+func (s *PageService) GetPagesForSubcategory(ctx context.Context, categoryName string, subcategoryName string) ([]*data.Page, error) {
+	parent, err := s.categoryRepo.FindByName(categoryName, nil)
+	if err != nil {
+		return nil, err
+	}
+	if parent == nil {
+		return nil, fmt.Errorf("category '%s' not found", categoryName)
+	}
+
+	subCategory, err := s.categoryRepo.FindByName(subcategoryName, &parent.ID)
+	if err != nil {
+		return nil, err
+	}
+	if subCategory == nil {
+		return nil, fmt.Errorf("subcategory '%s' not found in category '%s'", subcategoryName, categoryName)
+	}
+
+	return s.repo.GetPagesByCategoryID(ctx, subCategory.ID)
+}
+
 func (s *PageService) processMarkdown(page *data.Page) {
 	var buf bytes.Buffer
 	if err := s.markdown.Convert([]byte(page.Content), &buf); err == nil {
@@ -161,32 +256,62 @@ func (s *PageService) processMarkdown(page *data.Page) {
 	}
 }
 
-// DeletePage handles the deletion of a page by its ID.
-func (s *PageService) DeletePage(ctx context.Context, id int64) error {
-	return s.repo.DeletePage(ctx, id)
-}
-
-// GetAllPages retrieves all pages, using a cache to avoid frequent database hits.
-func (s *PageService) GetAllPages(ctx context.Context) ([]*data.Page, error) {
-	// 1. Check the cache first.
-	cacheKey := "pages:all"
-	if cachedBytes, _ := s.cache.Get(cacheKey); cachedBytes != nil {
-		var pages []*data.Page
-		if json.Unmarshal(cachedBytes, &pages) == nil {
-			return pages, nil
-		}
+func (s *PageService) getOrCreateCategories(ctx context.Context, categoryName, subcategoryName string) (*int64, error) {
+	if categoryName == "" {
+		categoryName = "NoCategory"
 	}
-
-	// 2. Cache miss: Fetch from the repository.
-	pages, err := s.repo.GetAllPages(ctx)
+	if subcategoryName == "" {
+		subcategoryName = "NoSubCategory"
+	}
+	mainCategory, err := s.categoryRepo.FindByName(categoryName, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	// 3. Store in cache for future requests.
-	if bytesToCache, err := json.Marshal(pages); err == nil {
-		s.cache.Set(cacheKey, bytesToCache, 5*time.Minute) // TODO: Use configured TTL
+	if mainCategory == nil {
+		newCat := &data.Category{Name: categoryName}
+		id, err := s.categoryRepo.Save(newCat)
+		if err != nil {
+			return nil, err
+		}
+		mainCategory = &data.Category{ID: id, Name: categoryName}
 	}
+	subCategory, err := s.categoryRepo.FindByName(subcategoryName, &mainCategory.ID)
+	if err != nil {
+		return nil, err
+	}
+	if subCategory == nil {
+		newSubCat := &data.Category{Name: subcategoryName, ParentID: &mainCategory.ID}
+		id, err := s.categoryRepo.Save(newSubCat)
+		if err != nil {
+			return nil, err
+		}
+		subCategory = &data.Category{ID: id, Name: subcategoryName, ParentID: &mainCategory.ID}
+	}
+	return &subCategory.ID, nil
+}
 
-	return pages, nil
+func (s *PageService) populateCategoryNames(page *data.Page) error {
+	if page.CategoryID == nil {
+		page.CategoryName = "NoCategory"
+		page.SubcategoryName = "NoSubCategory"
+		return nil
+	}
+	subCategory, err := s.categoryRepo.GetByID(*page.CategoryID)
+	if err != nil {
+		page.CategoryName = "Unknown"
+		page.SubcategoryName = "Unknown"
+		return err
+	}
+	page.SubcategoryName = subCategory.Name
+	if subCategory.ParentID != nil {
+		parentCategory, err := s.categoryRepo.GetByID(*subCategory.ParentID)
+		if err != nil {
+			page.CategoryName = "Unknown"
+			return err
+		}
+		page.CategoryName = parentCategory.Name
+	} else {
+		page.CategoryName = "Uncategorized"
+	}
+	return nil
 }

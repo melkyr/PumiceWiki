@@ -6,6 +6,11 @@
 <article>
     <header>
         <h2>{{.Page.Title}}</h2>
+        <p>
+            <small>
+                Category: <a href="/category/{{.Page.CategoryName}}">{{.Page.CategoryName}}</a> / Subcategory: <a href="/category/{{.Page.CategoryName}}/{{.Page.SubcategoryName}}">{{.Page.SubcategoryName}}</a>
+            </small>
+        </p>
     </header>
     <div class="page-content">
         {{.Page.HTMLContent}}
@@ -19,6 +24,7 @@
         {{if eq . "editor"}}
             | <a href="/edit/NewPage">Create a new page</a>
             | <a href="/list">Wiki Pages</a>
+            | <a href="/categories">Categories</a>
         {{end}}
     {{end}}
     <br><br>

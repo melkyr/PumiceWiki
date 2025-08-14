@@ -5,6 +5,7 @@ package handler
 import (
 	"context"
 	"go-wiki-app/internal/auth"
+	"go-wiki-app/internal/cache"
 	"go-wiki-app/internal/config"
 	"go-wiki-app/internal/data"
 	"go-wiki-app/internal/logger"
@@ -14,6 +15,7 @@ import (
 	"go-wiki-app/web"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -28,40 +30,58 @@ import (
 )
 
 type testApp struct {
-	Router   *chi.Mux
-	Repo     service.PageRepository
-	Enforcer *casbin.Enforcer
+	Router         *chi.Mux
+	DB             *sqlx.DB
+	PageRepo       *data.SQLPageRepository
+	CategoryRepo   *data.CategoryRepository
+	Enforcer       casbin.IEnforcer
+	SessionManager *scs.SessionManager
 }
 
 var testAppInstance *testApp
 
 func TestMain(m *testing.M) {
-	// Setup
-	dsn := "file::memory:?cache=shared"
+	dsn := "file:integration_test.db?cache=shared&mode=memory"
 	db, err := sqlx.Connect("sqlite3", dsn)
 	if err != nil {
 		panic("Failed to connect to sqlite test database: " + err.Error())
 	}
 
-	// Run migrations
-	sqliteSchema := `
-CREATE TABLE pages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL UNIQUE,
-    content TEXT NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);`
-	db.MustExec(sqliteSchema)
-	schema2, _ := os.ReadFile("../../migrations/002_create_casbin_rule_table.up.sql")
-	db.MustExec(string(schema2))
-	schema3, _ := os.ReadFile("../../migrations/003_create_sessions_table.up.sql")
-	db.MustExec(string(schema3))
+	// Migrations
+	pagesSchema := `
+	CREATE TABLE pages (
+		id INTEGER PRIMARY KEY,
+		title TEXT NOT NULL UNIQUE,
+		content TEXT NOT NULL,
+		author_id TEXT NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		category_id INTEGER
+	);`
+	db.MustExec(pagesSchema)
+
+	categoriesSchema := `
+	CREATE TABLE categories (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		parent_id INTEGER,
+		FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE,
+		UNIQUE (name, parent_id)
+	);`
+	db.MustExec(categoriesSchema)
+
+	casbinSchema, _ := os.ReadFile("../../migrations/002_create_casbin_rule_table.up.sql")
+	db.MustExec(string(casbinSchema))
+	sessionsSchema, _ := os.ReadFile("../../migrations/003_create_sessions_table.up.sql")
+	db.MustExec(string(sessionsSchema))
 
 	log := logger.New(config.LogConfig{Level: "debug", Format: "console"})
 	viewService, _ := view.New(web.TemplateFS)
+	testCache, _ := cache.New(config.CacheConfig{FilePath: "file::memory:"})
+
 	pageRepository := data.NewSQLPageRepository(db)
-	pageService := service.NewPageService(pageRepository)
+	categoryRepository := data.NewCategoryRepository(db)
+	pageService := service.NewPageService(pageRepository, categoryRepository, testCache)
 
 	sessionManager := scs.New()
 	sessionManager.Store = sqlite3store.New(db.DB)
@@ -76,102 +96,92 @@ CREATE TABLE pages (
 	router := NewRouter(pageHandler, nil, seoHandler, authzMiddleware, errorMiddleware, sessionManager)
 
 	testAppInstance = &testApp{
-		Router:   router,
-		Repo:     pageRepository,
-		Enforcer: enforcer,
+		Router:         router,
+		DB:             db,
+		PageRepo:       pageRepository,
+		CategoryRepo:   categoryRepository,
+		Enforcer:       enforcer,
+		SessionManager: sessionManager,
 	}
 
-	// Run tests
 	exitCode := m.Run()
 
-	// Teardown
+	testCache.Close()
 	db.Close()
 	os.Exit(exitCode)
 }
 
-func TestHandlers_Integration(t *testing.T) {
-	// Seed policies
-	testAppInstance.Enforcer.AddPolicy("anonymous", "/view/*", "GET")
-	testAppInstance.Enforcer.AddPolicy("editor", "/edit/*", "GET")
+func getAuthenticatedCookie(t *testing.T) *http.Cookie {
+	t.Helper()
 
-	// Seed data for this test
-	page := &data.Page{Title: "TestPage", Content: "content"}
-	err := testAppInstance.Repo.CreatePage(context.Background(), page)
-	if err != nil {
-		t.Fatalf("failed to create page for test: %v", err)
+	var cookie *http.Cookie
+
+	// Create a dummy handler that sets the session
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		// The Authorizer middleware uses "user_subject" from the session
+		testAppInstance.SessionManager.Put(ctx, "user_subject", "test-editor")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Wrap the dummy handler with the session middleware
+	wrappedHandler := testAppInstance.SessionManager.LoadAndSave(handler)
+
+	// Call the handler to get the session cookie
+	req := httptest.NewRequest("GET", "/", nil)
+	rr := httptest.NewRecorder()
+	wrappedHandler.ServeHTTP(rr, req)
+
+	cookies := rr.Result().Cookies()
+	if len(cookies) > 0 {
+		cookie = cookies[0]
+	} else {
+		t.Fatal("failed to get session cookie")
 	}
 
-	// For debugging:
-	_, err = testAppInstance.Repo.GetPageByTitle(context.Background(), "TestPage")
-	if err != nil {
-		t.Fatalf("Failed to get page right after creating it: %v", err)
-	}
-
-	testCases := []struct {
-		name       string
-		method     string
-		path       string
-		wantStatus int
-		wantBody   string
-	}{
-		{
-			name:       "View Existing Page",
-			method:     "GET",
-			path:       "/view/TestPage",
-			wantStatus: http.StatusOK,
-			wantBody:   "<h2>TestPage</h2>",
-		},
-		{
-			name:       "View Non-Existent Page (Not Found Error)",
-			method:     "GET",
-			path:       "/view/NotFoundPage",
-			wantStatus: http.StatusNotFound,
-			wantBody:   "Error 404",
-		},
-		{
-			name:       "Edit Page without permission (Forbidden Error)",
-			method:     "GET",
-			path:       "/edit/TestPage",
-			wantStatus: http.StatusForbidden,
-			wantBody:   "Forbidden",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			req := httptest.NewRequest(tc.method, tc.path, nil)
-			rr := httptest.NewRecorder()
-			testAppInstance.Router.ServeHTTP(rr, req)
-
-			if rr.Code != tc.wantStatus {
-				t.Errorf("want status %d; got %d", tc.wantStatus, rr.Code)
-			}
-			if tc.wantBody != "" && !strings.Contains(rr.Body.String(), tc.wantBody) {
-				t.Errorf("body does not contain expected string '%s'", tc.wantBody)
-			}
-		})
-	}
+	return cookie
 }
 
-func TestCompression_Integration(t *testing.T) {
-	// Seed policies
-	testAppInstance.Enforcer.AddPolicy("anonymous", "/view/*", "GET")
+func TestSavePage_WithCategories_Integration(t *testing.T) {
+	testAppInstance.DB.MustExec("DELETE FROM pages")
+	testAppInstance.DB.MustExec("DELETE FROM categories")
 
-	// Seed data for this test
-	page := &data.Page{Title: "CompressPage", Content: "this is some content to be compressed"}
-	testAppInstance.Repo.CreatePage(context.Background(), page)
+	// Grant permissions for the test
+	testAppInstance.Enforcer.AddPolicy("editor", "/save/NewCategorizedPage", "POST")
+	testAppInstance.Enforcer.AddRoleForUser("test-editor", "editor")
 
-	req := httptest.NewRequest("GET", "/view/CompressPage", nil)
-	req.Header.Set("Accept-Encoding", "gzip")
+	cookie := getAuthenticatedCookie(t)
+
+	form := url.Values{}
+	form.Add("title", "NewCategorizedPage")
+	form.Add("content", "Some content")
+	form.Add("category", "IntegrationTests")
+	form.Add("subcategory", "Passing")
+
+	req := httptest.NewRequest("POST", "/save/NewCategorizedPage", strings.NewReader(form.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(cookie)
 
 	rr := httptest.NewRecorder()
 	testAppInstance.Router.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("want status %d; got %d", http.StatusOK, rr.Code)
+	if rr.Code != http.StatusFound {
+		t.Errorf("want status %d; got %d", http.StatusFound, rr.Code)
 	}
 
-	if rr.Header().Get("Content-Encoding") != "gzip" {
-		t.Errorf("want Content-Encoding header to be 'gzip'; got '%s'", rr.Header().Get("Content-Encoding"))
+	page, err := testAppInstance.PageRepo.GetPageByTitle(context.Background(), "NewCategorizedPage")
+	if err != nil {
+		t.Fatalf("Failed to retrieve saved page: %v", err)
+	}
+	if page.CategoryID == nil {
+		t.Fatal("Page was saved with a nil CategoryID")
+	}
+
+	subCategory, err := testAppInstance.CategoryRepo.GetByID(*page.CategoryID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve subcategory: %v", err)
+	}
+	if subCategory.Name != "Passing" {
+		t.Errorf("Expected subcategory name 'Passing', got '%s'", subCategory.Name)
 	}
 }

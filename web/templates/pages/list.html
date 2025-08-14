@@ -3,7 +3,7 @@
 {{define "title"}}Wiki Pages{{end}}
 
 {{define "content"}}
-    <h2>Wiki Pages</h2>
+    <h2>All Pages</h2>
     <table>
         <thead>
             <tr>
@@ -18,4 +18,37 @@
             {{end}}
         </tbody>
     </table>
+
+    <hr>
+
+    <details>
+        <summary>Browse by Category</summary>
+        <nav>
+            <ul>
+                {{range $node := .CategoryTree}}
+                <li>
+                    <a href="/category/{{$node.Parent.Name}}"><strong>{{$node.Parent.Name}}</strong></a>
+                    {{if $node.Children}}
+                    <ul>
+                        {{range $node.Children}}
+                        <li><a href="/category/{{$node.Parent.Name}}/{{.Name}}">{{.Name}}</a></li>
+                        {{end}}
+                    </ul>
+                    {{end}}
+                </li>
+                {{end}}
+            </ul>
+        </nav>
+    </details>
+
+    <footer class="page-footer">
+        {{range .UserInfo.Roles}}
+            {{if eq . "editor"}}
+                <a href="/edit/NewPage">Create a new page</a>
+                | <a href="/categories">Categories</a>
+            {{end}}
+        {{end}}
+        <br><br>
+        <a href="/view/Home">Back to Home</a>
+    </footer>
 {{end}}
