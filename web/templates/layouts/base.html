@@ -8,38 +8,8 @@
     <link rel="stylesheet" href="/static/css/pico.min.css">
     {{if not .IsBasicMode}}
     <script src="/static/js/htmx.min.js"></script>
-    <link rel="stylesheet" href="/static/css/easymde.min.css">
-    <script src="/static/js/easymde.min.js"></script>
-    <style>
-        /* Aggressive override to isolate EasyMDE from Pico.css */
-        .editor-toolbar button {
-            all: unset;
-            display: inline-block;
-            text-align: center;
-            cursor: pointer;
-            height: 30px;
-            margin: 0;
-            padding: 0 6px;
-            border: 1px solid transparent;
-            border-radius: 3px;
-            font-weight: 700;
-            min-width: 30px;
-            white-space: nowrap;
-        }
-        .editor-toolbar button:hover {
-            background: #fcfcfc;
-            border-color: #95a5a6;
-        }
-        .editor-toolbar button > .fa {
-            font-family: "FontAwesome";
-            font-style: normal;
-            font-weight: normal;
-            line-height: 1;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-    </style>
     {{end}}
+    {{block "styles" .}}{{end}}
 </head>
 <body>
     <main class="container">
