@@ -14,7 +14,50 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/renderer"
+	"github.com/yuin/goldmark/renderer/html"
+	"github.com/yuin/goldmark/util"
 )
+
+// lazyLoadRenderer is a custom renderer for images.
+type lazyLoadRenderer struct {
+	html.Config
+}
+
+// NewLazyLoadRenderer creates a new custom image renderer.
+func NewLazyLoadRenderer() renderer.NodeRenderer {
+	return &lazyLoadRenderer{
+		Config: html.NewConfig(),
+	}
+}
+
+// RegisterFuncs registers the renderer for the Image node.
+func (r *lazyLoadRenderer) RegisterFuncs(reg renderer.NodeRendererFuncRegisterer) {
+	reg.Register(ast.KindImage, r.renderImage)
+}
+
+func (r *lazyLoadRenderer) renderImage(w util.BufWriter, source []byte, node ast.Node, entering bool) (ast.WalkStatus, error) {
+	if !entering {
+		return ast.WalkContinue, nil
+	}
+	n := node.(*ast.Image)
+	_, _ = w.WriteString("<img src=\"")
+	_, _ = w.Write(util.EscapeHTML(n.Destination))
+	_, _ = w.WriteString("\" alt=\"")
+	_, _ = w.Write(util.EscapeHTML(n.Text(source)))
+	_, _ = w.WriteString("\" loading=\"lazy\"")
+	if n.Title != nil {
+		_, _ = w.WriteString(" title=\"")
+		_, _ = w.Write(util.EscapeHTML(n.Title))
+		_, _ = w.WriteString("\"")
+	}
+	if n.Attributes() != nil {
+		html.RenderAttributes(w, n, nil)
+	}
+	_, _ = w.WriteString(">")
+	return ast.WalkSkipChildren, nil
+}
 
 // PageRepository defines the interface for database operations on pages.
 type PageRepository interface {
@@ -70,7 +113,13 @@ type PageService struct {
 func NewPageService(repo PageRepository, categoryRepo CategoryRepository, cache *cache.Cache) *PageService {
 	sanitizer := bluemonday.UGCPolicy()
 	sanitizer.AllowImages()
-	markdown := goldmark.New(goldmark.WithExtensions())
+	markdown := goldmark.New(
+		goldmark.WithRendererOptions(
+			renderer.WithNodeRenderers(
+				util.Prioritized(NewLazyLoadRenderer(), 100),
+			),
+		),
+	)
 	return &PageService{
 		repo:         repo,
 		categoryRepo: categoryRepo,
